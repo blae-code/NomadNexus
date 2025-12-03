@@ -16,7 +16,7 @@ const CommsControlPanel = () => {
     setIsRecording(prev => !prev);
     console.log(`Room recording ${isRecording ? 'stopped' : 'started'}.`);
     // In a real app, this would call a backend function:
-    // base44.functions.invoke('toggleRoomRecording', { roomId: 'currentRoomId', start: !isRecording });
+    // dataClient.functions.invoke('toggleRoomRecording', { roomId: 'currentRoomId', start: !isRecording });
   };
 
   return (

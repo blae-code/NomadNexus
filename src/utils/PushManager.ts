@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { dataClient } from '@/api/dataClient';
 
 // Helper function to convert VAPID public key to Uint8Array
 function urlBase64ToUint8Array(base64String: string) {
@@ -81,7 +81,7 @@ class PushManager {
       console.log('User subscribed to push:', pushSubscription);
 
       // Send subscription to your backend
-      await base44.post('/api/notifications/subscribe', {
+      await dataClient.post('/api/notifications/subscribe', {
         userId,
         endpoint: pushSubscription.endpoint,
         keys: {

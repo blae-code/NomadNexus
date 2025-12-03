@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Radio, Mic, Users, Lock, Volume2, ShieldAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { SignalStrength, NetTypeIcon } from "@/components/comms/SharedCommsComponents";
 
 import { Headphones } from "lucide-react";
@@ -13,7 +13,7 @@ export default function NetList({ nets, selectedNetId, onSelect, userSquadId, vi
   // Fetch statuses to check for distress
   const { data: statuses } = useQuery({
     queryKey: ['net-list-statuses', eventId],
-    queryFn: () => eventId ? base44.entities.PlayerStatus.list({ event_id: eventId }) : [],
+    queryFn: () => eventId ? dataClient.entities.PlayerStatus.list({ event_id: eventId }) : [],
     enabled: !!eventId,
     initialData: []
   });

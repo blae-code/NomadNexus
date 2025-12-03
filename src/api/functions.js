@@ -1,3 +1,3 @@
-import { base44 } from './base44Client';
+import { dataClient } from './dataClient';
 
-export const invoke = base44.functions.invoke;
+export const invoke = dataClient.functions.invoke;

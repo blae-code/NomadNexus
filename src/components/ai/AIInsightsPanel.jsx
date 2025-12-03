@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,20 +15,20 @@ export default function AIInsightsPanel({ eventId, compact = false }) {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    dataClient.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   // Fetch Agents
   const { data: agents } = useQuery({
     queryKey: ['ai-agents'],
-    queryFn: () => base44.entities.AIAgent.list({ is_active: true }),
+    queryFn: () => dataClient.entities.AIAgent.list({ is_active: true }),
     initialData: []
   });
 
   // Fetch Logs
   const { data: logs, isLoading } = useQuery({
     queryKey: ['ai-logs', eventId],
-    queryFn: () => base44.entities.AIAgentLog.list({ 
+    queryFn: () => dataClient.entities.AIAgentLog.list({ 
       filter: { event_id: eventId },
       sort: { created_date: -1 },
       limit: 10 

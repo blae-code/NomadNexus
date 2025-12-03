@@ -3,7 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Flag, CheckSquare, User, Rocket, CornerDownRight } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { toast } from "sonner";
 
 export default function EventObjectives({ event, users, assets, canEdit }) {
@@ -13,7 +13,7 @@ export default function EventObjectives({ event, users, assets, canEdit }) {
     mutationFn: async ({ objectiveIndex, ...updates }) => {
        const newObjectives = [...(event.objectives || [])];
        newObjectives[objectiveIndex] = { ...newObjectives[objectiveIndex], ...updates };
-       return base44.entities.Event.update(event.id, { objectives: newObjectives });
+       return dataClient.entities.Event.update(event.id, { objectives: newObjectives });
     },
     onSuccess: () => {
        queryClient.invalidateQueries(['event-detail', event.id]);

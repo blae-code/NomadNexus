@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ export default function AgentRuleManager({ agentSlug }) {
 
   const { data: rules = [] } = useQuery({
     queryKey: ['agent-rules', agentSlug],
-    queryFn: () => base44.entities.AIAgentRule.list({ 
+    queryFn: () => dataClient.entities.AIAgentRule.list({ 
         filter: { agent_slug: agentSlug },
         sort: { created_date: -1 }
     }),
@@ -23,12 +23,12 @@ export default function AgentRuleManager({ agentSlug }) {
   });
 
   const createRuleMutation = useMutation({
-    mutationFn: (data) => base44.entities.AIAgentRule.create({ ...data, agent_slug: agentSlug }),
+    mutationFn: (data) => dataClient.entities.AIAgentRule.create({ ...data, agent_slug: agentSlug }),
     onSuccess: () => queryClient.invalidateQueries(['agent-rules', agentSlug])
   });
 
   const deleteRuleMutation = useMutation({
-    mutationFn: (id) => base44.entities.AIAgentRule.delete(id),
+    mutationFn: (id) => dataClient.entities.AIAgentRule.delete(id),
     onSuccess: () => queryClient.invalidateQueries(['agent-rules', agentSlug])
   });
 

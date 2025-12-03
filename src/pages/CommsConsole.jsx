@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import CommsEventSelector from "@/components/comms/CommsEventSelector";
 import NetList from "@/components/comms/NetList";
 import ActiveNetPanel from "@/components/comms/ActiveNetPanel";
@@ -43,7 +43,7 @@ export default function CommsConsolePage() {
   const [userSquadId, setUserSquadId] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    dataClient.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   if (currentUser && !canAccessFocusedVoice(currentUser)) {
@@ -63,7 +63,7 @@ export default function CommsConsolePage() {
     queryKey: ['console-user-squad', selectedEventId, currentUser?.id],
     queryFn: async () => {
        if (!selectedEventId || !currentUser) return null;
-       const statuses = await base44.entities.PlayerStatus.list({ 
+       const statuses = await dataClient.entities.PlayerStatus.list({ 
           user_id: currentUser.id, 
           event_id: selectedEventId 
        });
@@ -71,7 +71,7 @@ export default function CommsConsolePage() {
           setUserSquadId(statuses[0].assigned_squad_id);
           return statuses[0].assigned_squad_id;
        }
-       const memberships = await base44.entities.SquadMember.list({ user_id: currentUser.id });
+       const memberships = await dataClient.entities.SquadMember.list({ user_id: currentUser.id });
        if (memberships.length > 0) {
           setUserSquadId(memberships[0].squad_id);
           return memberships[0].squad_id;
@@ -84,7 +84,7 @@ export default function CommsConsolePage() {
 
   const { data: voiceNets, isLoading } = useQuery({
     queryKey: ['voice-nets', selectedEventId],
-    queryFn: () => base44.entities.VoiceNet.list({ 
+    queryFn: () => dataClient.entities.VoiceNet.list({ 
       filter: { event_id: selectedEventId },
       sort: { priority: 1 } 
     }),
@@ -96,7 +96,7 @@ export default function CommsConsolePage() {
     queryKey: ['comms-activity', selectedEventId],
     queryFn: async () => {
       if (!selectedEventId) return {};
-      const msgs = await base44.entities.Message.list({
+      const msgs = await dataClient.entities.Message.list({
         sort: { created_date: -1 },
         limit: 20
       });

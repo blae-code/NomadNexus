@@ -59,6 +59,9 @@ export interface Profile {
   // Add any other fields from your profiles table here
 }
 
+// Generic fallback type for dynamic tables
+type GenericRow = Record<string, any>;
+
 // --- Supabase Database Schema Type ---
 // This is the main type to be injected into createClient<Database>
 export type Database = {
@@ -94,6 +97,22 @@ export type Database = {
         Insert: Partial<Profile>;
         Update: Partial<Profile>;
       };
+      events: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      player_status: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      squad_members: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      voice_nets: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      messages: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      coffer_transactions: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      coffers: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      fleet_assets: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      roles: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      missions: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      channels: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      ai_agent_logs: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      ai_agents: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      ai_agent_rules: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      armory_items: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
+      squads: { Row: GenericRow; Insert: Partial<GenericRow>; Update: Partial<GenericRow> };
     };
     Views: {
       // Add any views here if applicable

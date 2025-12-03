@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Lock, Hash, Mic, EyeOff } from "lucide-react";
@@ -10,12 +10,12 @@ export default function ChannelsPage() {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    dataClient.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const { data: channels, isLoading } = useQuery({
     queryKey: ['channels'],
-    queryFn: () => base44.entities.Channel.list(),
+    queryFn: () => dataClient.entities.Channel.list(),
     initialData: []
   });
 

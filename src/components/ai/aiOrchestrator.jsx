@@ -1,9 +1,9 @@
 
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 
 // --- Helper: Generic Finding Creator ---
 async function createFinding(eventId, agentSlug, type, severity, summary, details) {
-  return base44.entities.AIAgentLog.create({
+  return dataClient.entities.AIAgentLog.create({
     event_id: eventId,
     agent_slug: agentSlug,
     type,
@@ -20,7 +20,7 @@ async function runCommsWatch(eventId) {
   const lookbackTime = new Date(Date.now() - LOOKBACK_MINUTES * 60000).toISOString();
 
   // Fetch Data
-  const messages = await base44.entities.Message.list({
+  const messages = await dataClient.entities.Message.list({
     filter: {
       created_date: { $gte: lookbackTime }
       // In a real app we might filter by event_id if messages were linked to events directly
@@ -29,7 +29,7 @@ async function runCommsWatch(eventId) {
     limit: 50
   });
 
-  const statuses = await base44.entities.PlayerStatus.list({ event_id: eventId });
+  const statuses = await dataClient.entities.PlayerStatus.list({ event_id: eventId });
   
   const findings = [];
 
@@ -89,7 +89,7 @@ async function executeAction(actionType, actionParamsStr, eventId) {
     const { role } = params;
     // Find a READY user with OTHER role or specifically unassigned in this event context
     // Simplified: Find someone with status 'READY' and role 'OTHER'
-    const candidates = await base44.entities.PlayerStatus.list({ 
+    const candidates = await dataClient.entities.PlayerStatus.list({ 
       filter: { // Adding filter key as per SDK usage
         event_id: eventId,
         status: 'READY',
@@ -99,7 +99,7 @@ async function executeAction(actionType, actionParamsStr, eventId) {
     
     if (candidates.length > 0) {
       const target = candidates[0];
-      await base44.entities.PlayerStatus.update(target.id, { role: role });
+      await dataClient.entities.PlayerStatus.update(target.id, { role: role });
       
       // Log the action
       await createFinding(eventId, 'ops-monitor', 'INFO', 'HIGH', 'Auto-Action Triggered', `Automatically assigned ${role} role to user ${target.user_id.slice(0,4)}.`);
@@ -120,8 +120,8 @@ async function executeAction(actionType, actionParamsStr, eventId) {
 // --- Agent: Ops Monitor (Rule-Based + Dynamic) ---
 async function runOpsMonitor(eventId) {
   // Fetch Data
-  const statuses = await base44.entities.PlayerStatus.list({ event_id: eventId });
-  const event = await base44.entities.Event.get(eventId);
+  const statuses = await dataClient.entities.PlayerStatus.list({ event_id: eventId });
+  const event = await dataClient.entities.Event.get(eventId);
 
   const findings = [];
   
@@ -158,7 +158,7 @@ async function runOpsMonitor(eventId) {
   }
 
   // --- Dynamic Rule Evaluation ---
-  const rules = await base44.entities.AIAgentRule.list({ filter: { agent_slug: 'ops-monitor', is_active: true } });
+  const rules = await dataClient.entities.AIAgentRule.list({ filter: { agent_slug: 'ops-monitor', is_active: true } });
   
   const metrics = {
     medic_count: medics,
@@ -201,7 +201,7 @@ async function runOpsMonitor(eventId) {
 // --- Main Orchestrator ---
 export async function refreshAgent(agentSlug, eventId) {
   // Clear old logs (optional cleanup)
-  // await base44.entities.AIAgentLog.deleteMany({ event_id: eventId, agent_slug: agentSlug }); // Not available in SDK yet usually, just append new ones.
+  // await dataClient.entities.AIAgentLog.deleteMany({ event_id: eventId, agent_slug: agentSlug }); // Not available in SDK yet usually, just append new ones.
   
   if (agentSlug === 'comms-watch') {
     return runCommsWatch(eventId);

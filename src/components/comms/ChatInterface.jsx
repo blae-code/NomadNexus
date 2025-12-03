@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,20 @@ export default function ChatInterface({ channel, user }) {
   // Fetch Messages
   const { data: messages } = useQuery({
     queryKey: ['channel-messages', channel.id],
-    queryFn: () => base44.entities.Message.list({
-      filter: { channel_id: channel.id },
-      sort: { created_date: 1 },
-      limit: 50
-    }),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('channel_id', channel.id)
+        .order('created_date', { ascending: true })
+        .limit(50);
+      if (error) {
+        console.error('Error fetching messages', error);
+        return [];
+      }
+      return data || [];
+    },
     refetchInterval: 3000,
     initialData: []
   });
@@ -31,12 +40,17 @@ export default function ChatInterface({ channel, user }) {
     queryFn: async () => {
       const userIds = [...new Set(messages.map(m => m.user_id))];
       if (userIds.length === 0) return {};
-      
+
       // In a real app we might batch fetch or use a cache
       // For now we'll just list all users and map them (inefficient but works for small scale)
-      const allUsers = await base44.entities.User.list(); 
+      if (!supabase) return {};
+      const { data: allUsers, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Error fetching authors', error);
+        return {};
+      }
       const authorMap = {};
-      allUsers.forEach(u => {
+      (allUsers || []).forEach(u => {
          authorMap[u.id] = u;
       });
       return authorMap;
@@ -53,12 +67,18 @@ export default function ChatInterface({ channel, user }) {
   }, [messages]);
 
   const sendMessageMutation = useMutation({
-    mutationFn: (content) => base44.entities.Message.create({
-      channel_id: channel.id,
-      user_id: user.id,
-      content: content,
-      attachments: []
-    }),
+    mutationFn: async (content) => {
+      if (!supabase) return;
+      const { error } = await supabase.from('messages').insert({
+        channel_id: channel.id,
+        user_id: user.id,
+        content: content,
+        attachments: []
+      });
+      if (error) {
+        console.error('Error sending message', error);
+      }
+    },
     onSuccess: () => {
       setNewMessage("");
       queryClient.invalidateQueries(['channel-messages', channel.id]);

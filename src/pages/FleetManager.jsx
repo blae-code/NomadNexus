@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Rocket, MapPin, Activity, Shield, Edit, Trash2, Wrench } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { dataClient } from '@/api/dataClient';
 import { toast } from 'sonner';
 
 export default function FleetManagerPage() {
@@ -14,7 +14,7 @@ export default function FleetManagerPage() {
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
-     mutationFn: (id) => base44.entities.FleetAsset.delete(id),
+     mutationFn: (id) => dataClient.entities.FleetAsset.delete(id),
      onSuccess: () => {
         toast.success("Asset decommissioned");
         queryClient.invalidateQueries(['fleet-assets']);

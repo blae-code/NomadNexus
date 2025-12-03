@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Radio } from "lucide-react";
 
@@ -14,7 +14,7 @@ export default function CommsEventSelector({ selectedEventId, onSelect }) {
       yesterday.setDate(yesterday.getDate() - 1);
       
       // Simple fetch, sorting by date
-      return base44.entities.Event.list({
+      return dataClient.entities.Event.list({
         sort: { start_time: 1 },
         limit: 10
       });

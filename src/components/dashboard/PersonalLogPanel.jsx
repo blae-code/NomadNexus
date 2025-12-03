@@ -3,7 +3,7 @@ import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Award, ShieldCheck, DollarSign, ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { cn } from "@/lib/utils";
 import { createPageUrl } from "@/utils";
 
@@ -16,7 +16,7 @@ export default function PersonalLogPanel({ user }) {
     queryKey: ['feed-payouts', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const completedEvents = await base44.entities.Event.list({
+      const completedEvents = await dataClient.entities.Event.list({
         filter: { status: 'completed' },
         sort: { end_time: -1 },
         limit: 5
@@ -24,7 +24,7 @@ export default function PersonalLogPanel({ user }) {
       
       const payouts = [];
       for (const ev of completedEvents) {
-        const status = await base44.entities.PlayerStatus.list({
+        const status = await dataClient.entities.PlayerStatus.list({
           filter: { event_id: ev.id, user_id: user.id }
         });
         if (status.length > 0 && (ev.tags?.includes("Industry") || ev.tags?.includes("Rescue"))) {

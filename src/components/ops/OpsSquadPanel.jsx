@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -12,25 +12,25 @@ export default function OpsSquadPanel({ eventId }) {
   // Fetch squads, members, users, and statuses
   const { data: squads } = useQuery({
     queryKey: ['squads'],
-    queryFn: () => base44.entities.Squad.list(),
+    queryFn: () => dataClient.entities.Squad.list(),
     initialData: []
   });
 
   const { data: members } = useQuery({
     queryKey: ['squad-members'],
-    queryFn: () => base44.entities.SquadMember.list(),
+    queryFn: () => dataClient.entities.SquadMember.list(),
     initialData: []
   });
 
   const { data: users } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => dataClient.entities.User.list(),
     initialData: []
   });
 
   const { data: statuses } = useQuery({
     queryKey: ['ops-statuses', eventId],
-    queryFn: () => base44.entities.PlayerStatus.list({ filter: { event_id: eventId } }),
+    queryFn: () => dataClient.entities.PlayerStatus.list({ filter: { event_id: eventId } }),
     enabled: !!eventId,
     initialData: []
   });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { dataClient } from '@/api/dataClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,7 +16,7 @@ export default function AssetList({ onSelect, selectedId }) {
 
   const { data: assets } = useQuery({
     queryKey: ['fleet-assets'],
-    queryFn: () => base44.entities.FleetAsset.list(),
+    queryFn: () => dataClient.entities.FleetAsset.list(),
     initialData: []
   });
 
@@ -111,10 +111,10 @@ export function AssetFormDialog({ open, onOpenChange, trigger, asset }) {
 
       try {
          if (asset) {
-            await base44.entities.FleetAsset.update(asset.id, data);
+            await dataClient.entities.FleetAsset.update(asset.id, data);
             toast.success("Asset updated");
          } else {
-            await base44.entities.FleetAsset.create(data);
+            await dataClient.entities.FleetAsset.create(data);
             toast.success("Asset registered");
          }
          queryClient.invalidateQueries(['fleet-assets']);

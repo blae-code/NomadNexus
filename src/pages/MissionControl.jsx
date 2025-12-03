@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { dataClient } from '@/api/dataClient';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,7 +19,7 @@ export default function MissionControlPage() {
 
   const { data: missions, isLoading } = useQuery({
     queryKey: ['missions'],
-    queryFn: () => base44.entities.Mission.list({ sort: { created_date: -1 } }),
+    queryFn: () => dataClient.entities.Mission.list({ sort: { created_date: -1 } }),
     refetchInterval: 10000,
     initialData: []
   });
@@ -143,8 +143,8 @@ function MissionDetailView({ mission, onEdit }) {
    const queryClient = useQueryClient();
 
    // Fetch linked data
-   const { data: allUsers } = useQuery({ queryKey: ['mission-users-detail'], queryFn: () => base44.entities.User.list(), initialData: [] });
-   const { data: allAssets } = useQuery({ queryKey: ['mission-assets-detail'], queryFn: () => base44.entities.FleetAsset.list(), initialData: [] });
+   const { data: allUsers } = useQuery({ queryKey: ['mission-users-detail'], queryFn: () => dataClient.entities.User.list(), initialData: [] });
+   const { data: allAssets } = useQuery({ queryKey: ['mission-assets-detail'], queryFn: () => dataClient.entities.FleetAsset.list(), initialData: [] });
 
    const assignedUsers = allUsers.filter(u => mission.assigned_user_ids?.includes(u.id));
    const assignedAssets = allAssets.filter(a => mission.assigned_asset_ids?.includes(a.id));
@@ -158,7 +158,7 @@ function MissionDetailView({ mission, onEdit }) {
          } else {
             newObjectives[objectiveIndex] = { ...newObjectives[objectiveIndex], is_completed: isCompleted };
          }
-         return base44.entities.Mission.update(mission.id, { objectives: newObjectives });
+         return dataClient.entities.Mission.update(mission.id, { objectives: newObjectives });
       },
       onSuccess: () => {
          queryClient.invalidateQueries(['missions']);
@@ -167,7 +167,7 @@ function MissionDetailView({ mission, onEdit }) {
    });
 
    const updateStatusMutation = useMutation({
-      mutationFn: (status) => base44.entities.Mission.update(mission.id, { status }),
+      mutationFn: (status) => dataClient.entities.Mission.update(mission.id, { status }),
       onSuccess: () => {
          queryClient.invalidateQueries(['missions']);
          toast.success(`Mission status: ${status}`);

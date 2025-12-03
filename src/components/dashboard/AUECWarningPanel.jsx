@@ -1,13 +1,13 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { cn } from "@/lib/utils";
 import { Wallet, AlertTriangle } from "lucide-react";
 
 export default function AUECWarningPanel() {
   const { data: coffers = [] } = useQuery({
     queryKey: ['coffers-warning'],
-    queryFn: () => base44.entities.Coffer.list({ limit: 5 })
+    queryFn: () => dataClient.entities.Coffer.list({ limit: 5 })
   });
 
   const totalBalance = React.useMemo(() => {

@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Shield, Box, Syringe } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -8,7 +8,7 @@ export default function ArmoryStatusPanel() {
   const { data: items = [] } = useQuery({
     queryKey: ['armory-status-gauge'],
     queryFn: async () => {
-      return base44.entities.ArmoryItem.list({
+      return dataClient.entities.ArmoryItem.list({
         sort: { quantity: 1 },
         limit: 4
       });

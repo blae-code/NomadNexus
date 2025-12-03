@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sword, Calendar, Youtube, ExternalLink, ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { createPageUrl } from "@/utils";
 
 export default function OrgResourcesWidget() {
@@ -12,7 +12,7 @@ export default function OrgResourcesWidget() {
   const { data: nextMeeting } = useQuery({
     queryKey: ['next-bonfire'],
     queryFn: async () => {
-      const events = await base44.entities.Event.list({
+      const events = await dataClient.entities.Event.list({
         filter: { status: 'scheduled' },
         sort: { start_time: 1 }
       });

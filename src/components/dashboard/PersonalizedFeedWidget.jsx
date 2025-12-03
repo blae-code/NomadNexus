@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar, ShieldCheck, AlertCircle, Award, DollarSign, ArrowRight, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { cn } from "@/lib/utils";
 import { createPageUrl } from "@/utils";
 
@@ -12,7 +12,7 @@ export default function PersonalizedFeedWidget() {
   const [user, setUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    dataClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   // 1. Fetch Role-Specific Events
@@ -21,7 +21,7 @@ export default function PersonalizedFeedWidget() {
     queryFn: async () => {
       if (!user) return [];
       // Fetch upcoming events
-      const events = await base44.entities.Event.list({
+      const events = await dataClient.entities.Event.list({
         filter: { status: 'scheduled' },
         sort: { start_time: 1 },
         limit: 20 // Fetch more to filter in JS
@@ -47,7 +47,7 @@ export default function PersonalizedFeedWidget() {
     queryFn: async () => {
       if (!user) return [];
       // 1. Get recent completed events
-      const completedEvents = await base44.entities.Event.list({
+      const completedEvents = await dataClient.entities.Event.list({
         filter: { status: 'completed' },
         sort: { end_time: -1 },
         limit: 5
@@ -56,7 +56,7 @@ export default function PersonalizedFeedWidget() {
       const payouts = [];
       for (const ev of completedEvents) {
         // 2. Check if user was there
-        const status = await base44.entities.PlayerStatus.list({
+        const status = await dataClient.entities.PlayerStatus.list({
           filter: { event_id: ev.id, user_id: user.id }
         });
         

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { dataClient } from '@/api/dataClient';
 
 const CERTS = ['MEDICAL_CERT', 'NAV_CERT', 'COMBAT_CERT', 'HEAVY_CERT', 'RANGER_CERT', 'ENGINEERING_CERT'];
 
@@ -9,7 +9,7 @@ const ServiceRecordPanel = ({ userId }) => {
 
   useEffect(() => {
     if (!userId) return;
-    base44.entities.User.get(userId).then(setUser).catch(console.error);
+    dataClient.entities.User.get(userId).then(setUser).catch(console.error);
   }, [userId]);
 
   const toggleCert = (cert) => {
@@ -22,7 +22,7 @@ const ServiceRecordPanel = ({ userId }) => {
   const save = async () => {
     if (!user) return;
     setSaving(true);
-    await base44.entities.User.update(user.id, { certifications: user.certifications || [] });
+    await dataClient.entities.User.update(user.id, { certifications: user.certifications || [] });
     setSaving(false);
   };
 

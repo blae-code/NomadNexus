@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,12 @@ export default function RoleManager() {
   // Fetch Roles
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => base44.entities.Role.list()
+    queryFn: () => dataClient.entities.Role.list()
   });
 
   // Mutations
   const createRoleMutation = useMutation({
-    mutationFn: (data) => base44.entities.Role.create(data),
+    mutationFn: (data) => dataClient.entities.Role.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['roles']);
       setIsCreating(false);
@@ -34,7 +34,7 @@ export default function RoleManager() {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Role.update(id, data),
+    mutationFn: ({ id, data }) => dataClient.entities.Role.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['roles']);
       setEditingRole(null);
@@ -43,7 +43,7 @@ export default function RoleManager() {
   });
 
   const deleteRoleMutation = useMutation({
-    mutationFn: (id) => base44.entities.Role.delete(id),
+    mutationFn: (id) => dataClient.entities.Role.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['roles']);
       toast.success("Role deleted");

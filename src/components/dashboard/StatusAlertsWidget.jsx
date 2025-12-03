@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertTriangle, Wifi, WifiOff, Coins, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { cn } from "@/lib/utils";
 import { createPageUrl } from "@/utils";
 
@@ -10,13 +10,13 @@ export default function StatusAlertsWidget() {
   const [user, setUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    dataClient.auth.me().then(setUser).catch(() => {});
   }, []);
 
   // 1. Rescue Alert Check (Any player in DISTRESS)
   const { data: distressSignals = [] } = useQuery({
     queryKey: ['dashboard-distress'],
-    queryFn: () => base44.entities.PlayerStatus.list({
+    queryFn: () => dataClient.entities.PlayerStatus.list({
       filter: { status: 'DISTRESS' },
       limit: 1
     }),
@@ -29,7 +29,7 @@ export default function StatusAlertsWidget() {
     queryKey: ['my-comms-status', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const statuses = await base44.entities.PlayerStatus.list({
+      const statuses = await dataClient.entities.PlayerStatus.list({
         user_id: user.id,
         sort: { last_updated: -1 },
         limit: 1
@@ -52,11 +52,11 @@ export default function StatusAlertsWidget() {
       // Fetch General coffer transactions to calculate balance (since Coffer entity doesn't have balance field in schema provided)
       // Wait, the schema for Coffer doesn't have a 'balance'. I need to sum transactions.
       // Let's fetch Coffers first.
-      const coffers = await base44.entities.Coffer.list({ filter: { type: 'GENERAL' }, limit: 1 });
+      const coffers = await dataClient.entities.Coffer.list({ filter: { type: 'GENERAL' }, limit: 1 });
       if (coffers.length === 0) return null;
       
       const cofferId = coffers[0].id;
-      const transactions = await base44.entities.CofferTransaction.list({ filter: { coffer_id: cofferId } });
+      const transactions = await dataClient.entities.CofferTransaction.list({ filter: { coffer_id: cofferId } });
       
       const balance = transactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
       return balance < 500000 ? balance : null;

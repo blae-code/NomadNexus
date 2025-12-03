@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ import { useLiveKit, AUDIO_STATE } from '@/hooks/useLiveKit';
 function CommsLog({ eventId }) {
   const { data: messages } = useQuery({
     queryKey: ['comms-messages', eventId],
-    queryFn: () => base44.entities.Message.list({ 
+    queryFn: () => dataClient.entities.Message.list({ 
       sort: { created_date: -1 }, 
       limit: 50 
     }),
@@ -62,19 +62,19 @@ function NetRoster({ net, eventId }) {
   const { audioState } = useLiveKit();
   const { data: allUsers } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => dataClient.entities.User.list(),
     initialData: []
   });
   
   const [currentUser, setCurrentUser] = React.useState(null);
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    dataClient.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
   const myId = currentUser?.id;
 
   const { data: statuses } = useQuery({
     queryKey: ['net-roster-statuses', eventId],
-    queryFn: () => base44.entities.PlayerStatus.list({ event_id: eventId }),
+    queryFn: () => dataClient.entities.PlayerStatus.list({ event_id: eventId }),
     enabled: !!eventId,
     refetchInterval: 3000,
     initialData: []
@@ -82,7 +82,7 @@ function NetRoster({ net, eventId }) {
 
   const { data: squadMembers } = useQuery({
     queryKey: ['squad-members', net.linked_squad_id],
-    queryFn: () => net.linked_squad_id ? base44.entities.SquadMember.list({ squad_id: net.linked_squad_id }) : [],
+    queryFn: () => net.linked_squad_id ? dataClient.entities.SquadMember.list({ squad_id: net.linked_squad_id }) : [],
     enabled: !!net.linked_squad_id,
     initialData: []
   });

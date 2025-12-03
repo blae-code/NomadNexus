@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ export default function CommsAIAssistant({ eventId, channelId, user }) {
   // AI Operations
   const aiMutation = useMutation({
     mutationFn: async ({ action, data }) => {
-      const res = await base44.functions.invoke('commsAssistant', { action, data });
+      const res = await dataClient.functions.invoke('commsAssistant', { action, data });
       return res.data;
     }
   });

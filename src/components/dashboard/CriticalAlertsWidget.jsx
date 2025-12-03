@@ -2,13 +2,13 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { AlertTriangle, ShieldAlert, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { cn } from "@/lib/utils";
 
 export default function CriticalAlertsWidget() {
   const { data: alerts = [] } = useQuery({
     queryKey: ['dashboard-alerts'],
-    queryFn: () => base44.entities.AIAgentLog.list({
+    queryFn: () => dataClient.entities.AIAgentLog.list({
       filter: { severity: 'HIGH' },
       sort: { created_date: -1 },
       limit: 5

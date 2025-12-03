@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Crosshair, Navigation, Map as MapIcon, Users, Radio, ShieldAlert, Rocket } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { dataClient } from '@/api/dataClient';
 
 export default function TacticalMap({ className }) {
   const [selectedSector, setSelectedSector] = useState(null);
@@ -17,7 +17,7 @@ export default function TacticalMap({ className }) {
   // Fetch active squads for map placement (simulated coordinates)
   const { data: squads } = useQuery({
     queryKey: ['tactical-squads'],
-    queryFn: () => base44.entities.Squad.list(),
+    queryFn: () => dataClient.entities.Squad.list(),
     refetchInterval: 5000,
     initialData: []
   });
@@ -25,7 +25,7 @@ export default function TacticalMap({ className }) {
   // Fetch active distress signals
   const { data: distressSignals } = useQuery({
     queryKey: ['tactical-distress'],
-    queryFn: () => base44.entities.PlayerStatus.list({ filter: { status: 'DISTRESS' } }),
+    queryFn: () => dataClient.entities.PlayerStatus.list({ filter: { status: 'DISTRESS' } }),
     refetchInterval: 2000,
     initialData: []
   });
@@ -33,7 +33,7 @@ export default function TacticalMap({ className }) {
   // Fetch fleet assets for map
   const { data: fleetAssets } = useQuery({
     queryKey: ['tactical-fleet'],
-    queryFn: () => base44.entities.FleetAsset.list(),
+    queryFn: () => dataClient.entities.FleetAsset.list(),
     refetchInterval: 5000,
     initialData: []
   });

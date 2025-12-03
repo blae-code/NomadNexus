@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { dataClient } from "@/api/dataClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,7 +13,7 @@ export default function OpsEventSelector({ selectedEventId, onSelect }) {
     queryFn: async () => {
       // Fetch events starting recently or in future
       // For simplicity, just fetching all and sorting by date, filtering in JS for "Active/Upcoming"
-      const all = await base44.entities.Event.list({ sort: { start_time: 1 } });
+      const all = await dataClient.entities.Event.list({ sort: { start_time: 1 } });
       const now = new Date();
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       return all.filter(e => new Date(e.end_time || e.start_time) > yesterday);
