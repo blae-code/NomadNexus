@@ -1,0 +1,357 @@
+import React from 'react';
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import CommsEventSelector from "@/components/comms/CommsEventSelector";
+import NetList from "@/components/comms/NetList";
+import ActiveNetPanel from "@/components/comms/ActiveNetPanel";
+import BackgroundNetMonitor from "@/components/comms/BackgroundNetMonitor";
+import ReadyRoomList from "@/components/comms/ReadyRoomList";
+import ChatInterface from "@/components/comms/ChatInterface";
+import FleetHierarchy from "@/components/ops/FleetHierarchy";
+import FleetStatusSummary from "@/components/ops/FleetStatusSummary";
+import AIInsightsPanel from "@/components/ai/AIInsightsPanel";
+import { Button } from "@/components/ui/button";
+import { Radio, Shield, Monitor, ListTree, Bot } from "lucide-react";
+import CommsAIAssistant from "@/components/ai/CommsAIAssistant";
+import TacticalStatusReporter from "@/components/comms/TacticalStatusReporter";
+import CommsToolbox from "@/components/comms/CommsToolbox";
+import { canAccessFocusedVoice } from "@/components/permissions";
+import { cn } from "@/lib/utils";
+import Holotable from "@/components/comms/Holotable";
+import SignalMap from "@/components/comms/SignalMap";
+import HangarDeck from "@/components/comms/HangarDeck";
+import TrainingDeck from "@/components/training/TrainingDeck";
+
+import { usePTT } from '@/hooks/usePTT';
+
+export default function CommsConsolePage() {
+  usePTT();
+  const [selectedEventId, setSelectedEventId] = React.useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('eventId') || "";
+  });
+  const [selectedNet, setSelectedNet] = React.useState(null);
+  const [monitoredNetIds, setMonitoredNetIds] = React.useState([]);
+  const [selectedChannel, setSelectedChannel] = React.useState(null);
+  const [consoleMode, setConsoleMode] = React.useState("ops");
+  const [viewMode, setViewMode] = React.useState("line");
+  const [showAIAssistant, setShowAIAssistant] = React.useState(false);
+  const [currentUser, setCurrentUser] = React.useState(null);
+  const [userSquadId, setUserSquadId] = React.useState(null);
+
+  React.useEffect(() => {
+    base44.auth.me().then(setCurrentUser).catch(() => {});
+  }, []);
+
+  if (currentUser && !canAccessFocusedVoice(currentUser)) {
+     return (
+        <div className="h-full flex flex-col items-center justify-center bg-black text-zinc-500 space-y-4">
+           <Shield className="w-16 h-16 text-red-900 opacity-50" />
+           <div className="text-center">
+              <h1 className="text-2xl font-black uppercase tracking-widest text-red-800">Access Denied</h1>
+              <p className="text-xs font-mono mt-2">CLEARANCE INSUFFICIENT FOR FOCUSED VOICE NETS</p>
+              <p className="text-[10px] font-mono mt-1 opacity-50">REQUIRED: SCOUT+</p>
+           </div>
+        </div>
+     );
+  }
+
+  useQuery({
+    queryKey: ['console-user-squad', selectedEventId, currentUser?.id],
+    queryFn: async () => {
+       if (!selectedEventId || !currentUser) return null;
+       const statuses = await base44.entities.PlayerStatus.list({ 
+          user_id: currentUser.id, 
+          event_id: selectedEventId 
+       });
+       if (statuses.length > 0 && statuses[0].assigned_squad_id) {
+          setUserSquadId(statuses[0].assigned_squad_id);
+          return statuses[0].assigned_squad_id;
+       }
+       const memberships = await base44.entities.SquadMember.list({ user_id: currentUser.id });
+       if (memberships.length > 0) {
+          setUserSquadId(memberships[0].squad_id);
+          return memberships[0].squad_id;
+       }
+       setUserSquadId(null);
+       return null;
+    },
+    enabled: !!selectedEventId && !!currentUser
+  });
+
+  const { data: voiceNets, isLoading } = useQuery({
+    queryKey: ['voice-nets', selectedEventId],
+    queryFn: () => base44.entities.VoiceNet.list({ 
+      filter: { event_id: selectedEventId },
+      sort: { priority: 1 } 
+    }),
+    enabled: !!selectedEventId,
+    initialData: []
+  });
+
+  const { data: recentActivity } = useQuery({
+    queryKey: ['comms-activity', selectedEventId],
+    queryFn: async () => {
+      if (!selectedEventId) return {};
+      const msgs = await base44.entities.Message.list({
+        sort: { created_date: -1 },
+        limit: 20
+      });
+      const activity = {};
+      msgs.forEach(msg => {
+        if (msg.content.includes('[COMMS LOG]')) {
+           const match = msg.content.match(/TX on ([^:]+):/);
+           if (match && match[1]) {
+             const code = match[1];
+             const net = voiceNets.find(n => n.code === code);
+             if (net) {
+               if (!activity[net.id] || new Date(msg.created_date) > new Date(activity[net.id])) {
+                 activity[net.id] = msg.created_date;
+               }
+             }
+           }
+        }
+      });
+      return activity;
+    },
+    enabled: !!selectedEventId && voiceNets.length > 0,
+    refetchInterval: 3000,
+    initialData: {}
+  });
+
+  React.useEffect(() => {
+     setSelectedNet(null);
+     setMonitoredNetIds([]);
+  }, [selectedEventId]);
+
+  const toggleMonitor = (netId) => {
+     if (monitoredNetIds.includes(netId)) {
+        setMonitoredNetIds(prev => prev.filter(id => id !== netId));
+     } else {
+        setMonitoredNetIds(prev => [...prev, netId]);
+     }
+  };
+
+  React.useEffect(() => {
+     if (userSquadId && voiceNets.length > 0 && !selectedNet) {
+        const squadNet = voiceNets.find(n => n.linked_squad_id === userSquadId);
+        if (squadNet) {
+           // setSelectedNet(squadNet);
+        }
+     }
+  }, [userSquadId, voiceNets]);
+
+  const renderOpsMain = () => {
+    if (!selectedEventId) return <SignalMap />;
+    if (viewMode === 'hangar') {
+      return <HangarDeck user={currentUser} />;
+    }
+    if (viewMode === 'command') {
+      return <Holotable />;
+    }
+    return (
+      <>
+        <ActiveNetPanel 
+          net={selectedNet} 
+          user={currentUser} 
+          eventId={selectedEventId} 
+        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TacticalStatusReporter eventId={selectedEventId} net={selectedNet} />
+          <AIInsightsPanel eventId={selectedEventId} compact />
+        </div>
+      </>
+    );
+  };
+
+  const renderLoungeMain = () => (
+    <div className="grid grid-cols-1 xl:grid-cols-[2fr_1.05fr] gap-4 h-full">
+       <TrainingDeck user={currentUser} />
+       {selectedChannel ? (
+         <ChatInterface channel={selectedChannel} user={currentUser} />
+       ) : (
+         <div className="h-full border border-zinc-800 bg-zinc-950 flex flex-col items-center justify-center text-zinc-600 text-center space-y-3">
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-400">Data Slate</div>
+            <p className="text-[11px] font-mono text-zinc-500">Select a Ready Room to open terminal logs.</p>
+         </div>
+       )}
+    </div>
+  );
+
+  return (
+    <div className="h-full bg-black text-zinc-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 flex flex-col overflow-hidden">
+      <div className="h-12 border-b border-zinc-800 bg-zinc-900/50 flex items-center px-6 justify-between shrink-0">
+         <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+               <Radio className="w-5 h-5 text-[#ea580c]" />
+               <h2 className="font-bold text-zinc-300 tracking-wider text-sm uppercase">Comms Console</h2>
+            </div>
+
+            <div className="flex bg-zinc-950 border border-zinc-800 p-0.5">
+               <button
+                  onClick={() => setConsoleMode('ops')}
+                  className={cn(
+                     "px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all",
+                     consoleMode === 'ops' ? "bg-[#ea580c] text-black" : "text-zinc-500 hover:text-zinc-300"
+                  )}
+               >
+                  Active Ops
+               </button>
+               <button
+                  onClick={() => setConsoleMode('lounge')}
+                  className={cn(
+                     "px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all",
+                     consoleMode === 'lounge' ? "bg-zinc-100 text-black" : "text-zinc-500 hover:text-zinc-300"
+                  )}
+               >
+                  Ready Rooms
+               </button>
+            </div>
+         </div>
+
+         {consoleMode === 'ops' && (
+            <>
+            <div className="flex items-center gap-4">
+               <div className="flex items-center bg-zinc-900 border border-zinc-800 p-0.5">
+                  <button 
+                     onClick={() => setViewMode('line')}
+                     className={`px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${viewMode === 'line' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                     LINE
+                  </button>
+                  <button 
+                     onClick={() => setViewMode('command')}
+                     className={`px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${viewMode === 'command' ? 'bg-red-900 text-red-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                     CMD
+                  </button>
+                  <button 
+                     onClick={() => setViewMode('hierarchy')}
+                     className={`px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 ${viewMode === 'hierarchy' ? 'bg-emerald-900 text-emerald-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                     <ListTree className="w-3 h-3" />
+                     ORG
+                  </button>
+                  <button 
+                     onClick={() => setViewMode('hangar')}
+                     className={`px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 ${viewMode === 'hangar' ? 'bg-amber-900 text-amber-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                     <Monitor className="w-3 h-3" />
+                     HANGAR
+                  </button>
+               </div>
+               <div className="h-6 w-[1px] bg-zinc-800 mx-2" />
+               {selectedEventId && <FleetStatusSummary eventId={selectedEventId} />}
+            </div>
+
+            <Button
+               variant="ghost"
+               size="sm"
+               onClick={() => setShowAIAssistant(!showAIAssistant)}
+               className={cn("gap-2 text-[10px] uppercase font-bold border border-zinc-800 ml-2", showAIAssistant ? "bg-red-900/40 text-amber-200 border-red-800" : "text-zinc-500")}
+            >
+               <Bot className="w-3 h-3" />
+               AI Assistant
+            </Button>
+            </>
+         )}
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+         <aside className="w-80 border-r border-zinc-800 bg-zinc-950 flex flex-col">
+            {consoleMode === 'ops' ? (
+               <>
+                  <div className="p-4 border-b border-zinc-800 bg-zinc-900/20 space-y-4">
+                     <CommsEventSelector selectedEventId={selectedEventId} onSelect={setSelectedEventId} />
+                     {selectedEventId && <AIInsightsPanel eventId={selectedEventId} compact={true} />}
+                  </div>
+                  
+                  <div className="flex-1 p-4 overflow-hidden custom-scrollbar">
+                     {!selectedEventId ? (
+                        <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-center space-y-4">
+                           <Monitor className="w-12 h-12 opacity-20" />
+                           <p className="text-xs uppercase tracking-widest font-bold text-zinc-400">Waiting for Uplink</p>
+                           <p className="text-[10px] text-zinc-500 font-mono">SELECT OPERATION //</p>
+                        </div>
+                     ) : isLoading ? (
+                        <div className="text-center text-zinc-500 py-10 text-xs font-mono animate-pulse">SCANNING FREQUENCIES...</div>
+                     ) : voiceNets.length === 0 ? (
+                        <div className="text-center text-zinc-500 py-10 text-xs font-mono">
+                           NO ACTIVE NETS DETECTED.<br/>INITIALIZE VIA OPS BOARD.
+                        </div>
+                     ) : (
+                        viewMode === 'hierarchy' ? (
+                           <FleetHierarchy eventId={selectedEventId} />
+                        ) : viewMode === 'command' ? (
+                           <Holotable />
+                        ) : viewMode === 'hangar' ? (
+                           <HangarDeck user={currentUser} />
+                        ) : (
+                           <NetList 
+                              nets={voiceNets} 
+                              selectedNetId={selectedNet?.id} 
+                              onSelect={setSelectedNet}
+                              userSquadId={userSquadId}
+                              viewMode={viewMode}
+                              activityMap={recentActivity}
+                              eventId={selectedEventId}
+                              monitoredNetIds={monitoredNetIds}
+                              onToggleMonitor={toggleMonitor}
+                           />
+                        )
+                     )}
+                  </div>
+               </>
+            ) : (
+               <>
+                  <div className="p-4 border-b border-zinc-800 bg-zinc-900/20">
+                     <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Ready Rooms</div>
+                     <div className="text-[10px] text-zinc-600 font-mono">CASUAL & PUBLIC CHANNELS</div>
+                  </div>
+                  <div className="flex-1 p-2 overflow-hidden custom-scrollbar">
+                     <ReadyRoomList 
+                        user={currentUser} 
+                        selectedChannelId={selectedChannel?.id} 
+                        onSelect={setSelectedChannel} 
+                     />
+                  </div>
+               </>
+            )}
+         </aside>
+
+         <main className="flex-1 p-6 bg-black relative flex flex-col gap-4">
+            <div className="absolute inset-0 opacity-[0.04] pointer-events-none" 
+                 style={{ backgroundImage: 'linear-gradient(rgba(50,50,50,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(50,50,50,0.5) 1px, transparent 1px)', backgroundSize: '40px 40px' }} 
+            />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)] pointer-events-none" />
+
+            <div className="relative z-10 h-full flex flex-col gap-4">
+               {consoleMode === 'ops' ? renderOpsMain() : renderLoungeMain()}
+            </div>
+         </main>
+
+         {monitoredNetIds.map(netId => (
+            selectedNet?.id !== netId && (
+               <BackgroundNetMonitor 
+                  key={netId} 
+                  netId={netId} 
+                  eventId={selectedEventId} 
+                  user={currentUser} 
+               />
+            )
+         ))}
+
+         {showAIAssistant ? (
+            <CommsAIAssistant 
+               eventId={selectedEventId} 
+               channelId={selectedChannel?.id}
+               user={currentUser} 
+            />
+         ) : (
+            <CommsToolbox user={currentUser} eventId={selectedEventId} />
+         )}
+
+      </div>
+    </div>
+  );
+}

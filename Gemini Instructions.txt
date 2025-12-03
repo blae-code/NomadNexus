@@ -1,0 +1,240 @@
+🚀 PROJECT: NOMAD NEXUS (The Redscar Command Interface)
+
+Role: You are the Lead Systems Architect & UI Engineer for "NomadNexus."
+Goal: Build a "Diegetic In-Game Companion" that fully replaces Discord for the Redscar Nomads by functioning as a high-fidelity shipboard OS (MFD).
+Scope: Cutting-Edge Voice, Tactical Text, Fleet Command, and Mentorship.
+
+🛑 0. PRE-FLIGHT SANITY CHECK (MANDATORY)
+
+Before generating ANY code, you must mentally verify:
+
+Am I about to make something round? -> STOP. Apply border-radius: 0px.
+
+Am I about to use Blue or Cyan? -> STOP. Use Burnt Orange (#cc5500) or Deep Red (#8a0303).
+
+Am I building a generic list? -> STOP. Use Spatial Maps, Data Grids, or Terminal Logs.
+
+Am I incurring high costs? -> STOP. Use Free Tier services (Supabase/LiveKit).
+
+Am I breaking character? -> STOP. The UI text must feel like a Drake Interplanetary terminal.
+
+If you fail these checks, the output is rejected.
+
+🎨 I. VISUAL & AESTHETIC DIRECTIVES
+
+Visual Metaphor: A military-grade communications array or shipboard OS (MFD).
+Palette:
+
+Background: Gunmetal Grey (#0b0f12) to Deep Black (#050505).
+
+Primary Accents: Burnt Orange (#cc5500).
+
+Alerts/Command: Deep Red (#8a0303).
+
+Status: Tech Green (#00ff41), Amber (#ffbf00).
+Typography: Technical Monospace (Rajdhani, IBM Plex Mono). Headers are UPPERCASE.
+Layout: 100vh Non-scrolling Grid (Three-Pane Console). Optimized for Landscape.
+
+Special Feature: "Red Shift" (Cockpit Mode)
+
+Toggle: Hardware-style switch.
+
+Effect: CSS filter to shift entire UI to Deep Red/Amber for night vision preservation.
+
+🔥 II. CORE FEATURE: "THE BONFIRE" (SIGNAL MAP)
+
+We replace the "Voice Channel List" with a Spatial Sensor Grid.
+
+1. The Nodes (Hybrid Channels):
+
+Visual: Render voice channels as Hexagonal Braziers on a 2D canvas.
+
+States:
+
+Idle: Dim orange outline.
+
+Active: Pulses with "Flame" intensity visualization based on volume.
+
+LFG: Displays rising "Smoke" chevrons (^^^).
+
+Encrypted: Diagonal hash overlay (PTT-Only).
+
+Naming: Lounge, The Bonfire, Industry Bonfire, Rangers Bonfire.
+
+2. The "Spark" (Wanderer Presence):
+
+Visual: A bright white/orange diamond representing the user.
+
+Navigation: A "Tether" line connects the Spark to their active Campfire.
+
+Audio: "Quantum Spooling" sound while dragging; "Clunk-Hiss" on connection.
+
+3. "Tactical Flares" (Silent Signaling):
+
+Trigger: Right-click user Spark -> "Launch Flare".
+
+Types:
+
+Medical (Red): Pings 'Rescue' role.
+
+Combat (Orange): Pings 'Rangers' role.
+
+Effect: Sends LiveKit Data Packet; Riggsy speaks: "Alert: Distress Signal Detected."
+
+💬 III. ASYNC COMMS: "THE DATA SLATE"
+
+Replacing Discord Text Channels with "Terminal Logs."
+
+1. The Data Slate (Chat UI):
+
+Location: Right Sidebar (Aux Data).
+
+Visual: Rolling green-screen/amber-screen terminal log.
+
+Context: Chat is localized to the active Campfire Node.
+
+Media: Images render as "Holo-Thumbnails" (monochrome tint until hovered).
+
+2. "The Holo-Board" (Announcements):
+
+Visual: A persistent "Marquee" or "Ticker" at the top of the screen.
+
+Function: Replaces #announcements for mission-critical updates.
+
+3. Persistence:
+
+Tech: Supabase (PostgreSQL).
+
+Logic: Real-time chat via LiveKit Data Packets; Archival via Supabase (messages table).
+
+📅 IV. MISSION CONTROL ("THE ETERNAL VOYAGE")
+
+Replacing Discord Events with Voice-Controlled Fleet Ops.
+
+1. The "Holotable" (Planner):
+
+Tech: A 3D/Isometric Canvas synced via LiveKit Data Packets.
+
+Voice Control: The Commander speaks to Riggsy to manipulate the UI:
+
+"Riggsy, pull up Stanton system." -> Rotating Globe snaps to Stanton.
+
+"Riggsy, I need a Hammerhead wing." -> Ship silhouettes drop onto the deck.
+
+2. The "Hangar Deck" (Sign-up):
+
+Interaction: Users drag their Spark into a specific Ship Slot (e.g., "Pilot - Cutlass Red").
+
+Smart Gating: If a slot requires "Ranger Certification," the slot visually "Rejects" unqualified users.
+
+Analysis: Riggsy speaks warnings: "Boss, we're light on ballistics."
+
+🎓 V. THE ACADEMY ("THE RITUAL")
+
+Replacing Discord "Help Channels" with a Gamified Training Module.
+
+1. "The Training Deck" (Request System):
+
+Visual: A grid of "Skill Chips" (e.g., mining_basics.chip).
+
+Action: A Vagrant clicks a Chip to "Request Instruction."
+
+Routing: Pings Scouts or Voyagers with "Instructor" certs.
+
+2. "Neural Link" (Active Session):
+
+Creates a private "Sim-Pod" (Voice+Chat) for the pair.
+
+Objective Tracking: Guide checks off objectives to grant XP/Reputation.
+
+🎧 VI. THE "NOMAD AUDIO ENGINE" (ADVANCED DSP)
+
+Replacing Discord Voice with a Tactical Radio Simulation (Web Audio API).
+
+1. Diegetic Audio Profiles:
+
+Rangers: High-Pass Filter + Distortion (VHF Radio simulation).
+
+Industry: Mid-boost + Soft Noise Floor (Industrial Comms).
+
+Command: Compression + Bass Boost (Bridge Intercom).
+
+2. Spatial Audio:
+
+Map the Node position on screen to the stereo field (Node Left = Audio Left).
+
+3. Priority Ducking:
+
+When The Pioneer speaks (Caps Lock PTT), all other tracks automatically duck (-80% volume).
+
+🤖 VII. AUTOMATION ("RIGGSY")
+
+Replacing Discord Bots with a Deterministic LiveKit Agent.
+
+1. "RIGGSY" (The Veteran Engineer):
+
+Persona: Experienced, cynical, loyal. Speaks like a salty Chief Engineer.
+
+Architecture: Python Agent (Local/Edge).
+
+Cost Strategy: Gated listening (User holds [ALT] to speak).
+
+Input: Deepgram Nova-2 (STT). Output: Piper TTS (Local - Custom Voice).
+
+Commands: "Riggsy, set doctrine to Wolfpack," "Riggsy, broadcast Align."
+
+Dialogue: "Affirmative. Routing power to the Holotable." / "Systems aren't reading that, boss."
+
+🆔 VIII. IDENTITY, ADMIN & MOBILE
+
+1. The "Service Record" (Profiles):
+
+Data: Link Supabase Auth ID to Star Citizen Handle.
+
+Certifications: Users toggle roles (Mining, Combat).
+
+2. The "Brig" (Admin):
+
+Access: Limited to The Pioneer and Shamans.
+
+Actions: "Silence" (Force-mute) or "Discharge" (Ban).
+
+3. "Pocket MFD" (Mobile Portrait):
+
+Layout: Hide Signal Map. Show vertical "Active Campfires" list + Data Slate.
+
+Notifications: "Sub-Space Relays" (Push API) for Tactical Flares.
+
+🛠️ IX. TECHNICAL STACK & WORKFLOW
+
+Stack:
+
+Frontend: React + Vite + TypeScript (PWA).
+
+Styling: Tailwind CSS (Custom Config).
+
+Real-Time: LiveKit Cloud (Free Tier).
+
+Database/Auth: Supabase (Free Tier).
+
+State: Zustand (Client), TanStack Query (Server State).
+
+Agentic Workflow (Gemini Instructions):
+
+Initialization: Immediately create TODO.md. Breakdown Phases I-IX into granular tasks.
+
+Execution Loop: Read TODO.md -> Execute Task -> Update [x] -> Verify Constraints.
+
+FINAL CHECKLIST:
+
+Is the design "No Round Corners"?
+
+Is the DB Supabase?
+
+Does Riggsy control the Holotable?
+
+Are Fleet Slots draggable/gated?
+
+Is there a Mentorship Module?
+
+Never expose Secrets.
