@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -17,7 +17,7 @@ export default function TacticalStatusReporter({ user, eventId }) {
   const { data: latestLog } = useQuery({
     queryKey: ['tactical-log', eventId],
     queryFn: async () => {
-       const logs = await base44.entities.AIAgentLog.list({
+       const logs = await supabaseApi.entities.AIAgentLog.list({
           filter: { 
              event_id: eventId,
              agent_slug: 'tactical-computer'
@@ -46,13 +46,13 @@ export default function TacticalStatusReporter({ user, eventId }) {
     setIsAnalyzing(true);
     try {
       // Call Backend Function for Inference
-      const { data: result } = await base44.functions.invoke('inferTacticalStatus', {
+      const { data: result } = await supabaseApi.functions.invoke('inferTacticalStatus', {
           report: report,
           userRank: user?.rank || 'Unknown'
       });
 
       // Broadcast result via AIAgentLog
-      await base44.entities.AIAgentLog.create({
+      await supabaseApi.entities.AIAgentLog.create({
          event_id: eventId,
          agent_slug: 'tactical-computer',
          type: 'INFO',

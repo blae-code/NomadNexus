@@ -1,12 +1,12 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { STATUS_CONFIG } from "@/components/status/StatusChip";
 
 export default function FleetStatusSummary({ eventId }) {
   const { data: statuses } = useQuery({
     queryKey: ['event-statuses-summary', eventId],
-    queryFn: () => base44.entities.PlayerStatus.list({ event_id: eventId }),
+    queryFn: () => supabaseApi.entities.PlayerStatus.list({ event_id: eventId }),
     enabled: !!eventId,
     refetchInterval: 5000,
     initialData: []

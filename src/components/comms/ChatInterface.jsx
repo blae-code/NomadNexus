@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ export default function ChatInterface({ channel, user }) {
   // Fetch Messages
   const { data: messages } = useQuery({
     queryKey: ['channel-messages', channel.id],
-    queryFn: () => base44.entities.Message.list({
+    queryFn: () => supabaseApi.entities.Message.list({
       filter: { channel_id: channel.id },
       sort: { created_date: 1 },
       limit: 50
@@ -34,7 +34,7 @@ export default function ChatInterface({ channel, user }) {
       
       // In a real app we might batch fetch or use a cache
       // For now we'll just list all users and map them (inefficient but works for small scale)
-      const allUsers = await base44.entities.User.list(); 
+      const allUsers = await supabaseApi.entities.User.list(); 
       const authorMap = {};
       allUsers.forEach(u => {
          authorMap[u.id] = u;
@@ -53,7 +53,7 @@ export default function ChatInterface({ channel, user }) {
   }, [messages]);
 
   const sendMessageMutation = useMutation({
-    mutationFn: (content) => base44.entities.Message.create({
+    mutationFn: (content) => supabaseApi.entities.Message.create({
       channel_id: channel.id,
       user_id: user.id,
       content: content,

@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import StatusChip, { STATUS_CONFIG } from "@/components/status/StatusChip";
@@ -10,28 +10,28 @@ export default function FleetHierarchy({ eventId }) {
   // Fetch Squads
   const { data: squads } = useQuery({
     queryKey: ['squads'],
-    queryFn: () => base44.entities.Squad.list(),
+    queryFn: () => supabaseApi.entities.Squad.list(),
     initialData: []
   });
 
   // Fetch Squad Members
   const { data: memberships } = useQuery({
     queryKey: ['all-squad-members'],
-    queryFn: () => base44.entities.SquadMember.list(),
+    queryFn: () => supabaseApi.entities.SquadMember.list(),
     initialData: []
   });
 
   // Fetch Users
   const { data: users } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => supabaseApi.entities.User.list(),
     initialData: []
   });
 
   // Fetch Statuses for Event
   const { data: statuses } = useQuery({
     queryKey: ['event-statuses', eventId],
-    queryFn: () => base44.entities.PlayerStatus.list({ event_id: eventId }),
+    queryFn: () => supabaseApi.entities.PlayerStatus.list({ event_id: eventId }),
     enabled: !!eventId,
     initialData: []
   });

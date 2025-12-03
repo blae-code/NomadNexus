@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Activity, Users, Radio, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { cn } from "@/lib/utils";
 
 export default function OrgStatusWidget() {
@@ -10,7 +10,7 @@ export default function OrgStatusWidget() {
   const { data: activeEvent } = useQuery({
     queryKey: ['dashboard-active-event'],
     queryFn: async () => {
-       const events = await base44.entities.Event.list({
+       const events = await supabaseApi.entities.Event.list({
           filter: { status: 'active' },
           sort: { start_time: -1 },
           limit: 1
@@ -24,7 +24,7 @@ export default function OrgStatusWidget() {
     queryFn: async () => {
       if (!activeEvent) return { total: 0, ready: 0, down: 0, engaged: 0 };
       
-      const statuses = await base44.entities.PlayerStatus.list({ event_id: activeEvent.id });
+      const statuses = await supabaseApi.entities.PlayerStatus.list({ event_id: activeEvent.id });
       return {
          total: statuses.length,
          ready: statuses.filter(s => s.status === 'READY').length,

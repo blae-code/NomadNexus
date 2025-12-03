@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Coins, TrendingUp, TrendingDown } from "lucide-react";
 import TransactionHistory from "@/components/economy/TransactionHistory";
@@ -9,7 +9,7 @@ export default function EventEconomy({ eventId }) {
   // Calculate event totals
   const { data: transactions } = useQuery({
     queryKey: ['transactions', null, eventId],
-    queryFn: () => base44.entities.CofferTransaction.list({ filter: { event_id: eventId } }),
+    queryFn: () => supabaseApi.entities.CofferTransaction.list({ filter: { event_id: eventId } }),
     initialData: []
   });
 

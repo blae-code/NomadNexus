@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { supabaseApi } from '@/lib/supabaseApi';
 import { Radio, Activity, Users, AlertTriangle } from 'lucide-react';
 import CommsEventSelector from '@/components/comms/CommsEventSelector'; // Reuse
 import ActiveNetPanel from '@/components/comms/ActiveNetPanel'; // Reuse if possible, or make a simpler version
@@ -10,7 +10,7 @@ export default function OperatorDashboard({ user }) {
   // Fetch Active Nets
   const { data: activeNets } = useQuery({
     queryKey: ['operator-active-nets'],
-    queryFn: () => base44.entities.VoiceNet.list({ filter: { status: 'active' } }),
+    queryFn: () => supabaseApi.entities.VoiceNet.list({ filter: { status: 'active' } }),
     refetchInterval: 5000,
     initialData: []
   });
@@ -18,7 +18,7 @@ export default function OperatorDashboard({ user }) {
   // Fetch All Users Status
   const { data: playerStatuses } = useQuery({
     queryKey: ['operator-player-status'],
-    queryFn: () => base44.entities.PlayerStatus.list(),
+    queryFn: () => supabaseApi.entities.PlayerStatus.list(),
     refetchInterval: 3000,
     initialData: []
   });

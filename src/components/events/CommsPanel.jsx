@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ export default function CommsPanel({ eventId }) {
     queryKey: ['my-event-squad', eventId, currentUser?.id],
     queryFn: async () => {
       if (!currentUser || !eventId) return null;
-      const statuses = await base44.entities.PlayerStatus.list({ 
+      const statuses = await supabaseApi.entities.PlayerStatus.list({ 
         user_id: currentUser.id, 
         event_id: eventId 
       });
@@ -32,7 +32,7 @@ export default function CommsPanel({ eventId }) {
         return statuses[0].assigned_squad_id;
       }
       // Fallback to global squad
-      const memberships = await base44.entities.SquadMember.list({ user_id: currentUser.id });
+      const memberships = await supabaseApi.entities.SquadMember.list({ user_id: currentUser.id });
       if (memberships.length > 0) {
         setUserSquadId(memberships[0].squad_id);
         return memberships[0].squad_id;
@@ -51,12 +51,12 @@ export default function CommsPanel({ eventId }) {
   };
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    supabaseApi.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const { data: voiceNets, isLoading } = useQuery({
     queryKey: ['voice-nets', eventId],
-    queryFn: () => base44.entities.VoiceNet.list({ 
+    queryFn: () => supabaseApi.entities.VoiceNet.list({ 
       filter: { event_id: eventId },
       sort: { priority: 1 } 
     }),
@@ -91,9 +91,9 @@ export default function CommsPanel({ eventId }) {
   const pttMutation = useMutation({
     mutationFn: async () => {
       // Log simulated transmission
-      const channels = await base44.entities.Channel.list({ name: 'general' }, 1);
+      const channels = await supabaseApi.entities.Channel.list({ name: 'general' }, 1);
       if (channels.length > 0) {
-        return base44.entities.Message.create({
+        return supabaseApi.entities.Message.create({
           channel_id: channels[0].id,
           user_id: currentUser.id,
           content: `[COMMS LOG] TX on ${selectedNet.code} (Event ${eventId.slice(0,4)}): **SIMULATED TRANSMISSION**`,

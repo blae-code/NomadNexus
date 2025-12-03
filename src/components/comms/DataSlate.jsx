@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLiveKit } from '@/hooks/useLiveKit';
-import { base44 } from '@/api/base44Client';
+import { supabaseApi } from '@/lib/supabaseApi';
 import { supabase, hasSupabase } from '@/lib/supabaseClient';
 import { Input } from '@/components/ui/input';
 import QuantumSpooler from '../ui/QuantumSpooler';
@@ -120,7 +120,7 @@ const DataSlate = ({ isListening = false }) => {
             setLog(data.map((row) => row.content));
           }
         } else {
-          const rows = await base44.entities.Message.list({
+          const rows = await supabaseApi.entities.Message.list({
             filter: { campfire_id: campfireId },
             sort: { created_at: 1 },
             limit: 50,
@@ -155,7 +155,7 @@ const DataSlate = ({ isListening = false }) => {
           .insert({ campfire_id: campfireId, content, attachments: attachment ? [{ name: attachment.name }] : [] })
           .catch((err) => console.error('Supabase insert failed', err));
       } else {
-        base44.entities.Message.create({
+        supabaseApi.entities.Message.create({
           campfire_id: campfireId,
           content,
           attachments: attachment ? [{ name: attachment.name }] : [],

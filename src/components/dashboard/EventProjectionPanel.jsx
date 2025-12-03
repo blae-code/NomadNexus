@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { cn } from "@/lib/utils";
 import { Shield, Crosshair, Zap, AlertCircle } from "lucide-react";
 import { createPageUrl } from "@/utils";
@@ -11,7 +11,7 @@ export default function EventProjectionPanel({ user, compact = false }) {
   const { data: events = [] } = useQuery({
     queryKey: ['projection-events', user?.role_tags],
     queryFn: async () => {
-      const allEvents = await base44.entities.Event.list({
+      const allEvents = await supabaseApi.entities.Event.list({
         filter: { status: 'scheduled' },
         sort: { start_time: 1 },
         limit: 10
