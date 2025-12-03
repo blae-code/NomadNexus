@@ -1,26 +1,20 @@
-import { base44 } from './base44Client';
+import { createClient } from '@supabase/supabase-js';
 
+const supabaseUrl = process.env.PROJECT_URL ?? '';
+const supabaseKey = process.env.SERVICE_ROLE_KEY ?? '';
 
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('Supabase credentials missing. Configure PROJECT_URL and SERVICE_ROLE_KEY.');
+}
 
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-export const Core = base44.integrations.Core;
+export const invokeFunction = async (functionName, payload = {}) => {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
 
-export const InvokeLLM = base44.integrations.Core.InvokeLLM;
+  return supabase.functions.invoke(functionName, { body: payload });
+};
 
-export const SendEmail = base44.integrations.Core.SendEmail;
-
-export const UploadFile = base44.integrations.Core.UploadFile;
-
-export const GenerateImage = base44.integrations.Core.GenerateImage;
-
-export const ExtractDataFromUploadedFile = base44.integrations.Core.ExtractDataFromUploadedFile;
-
-export const CreateFileSignedUrl = base44.integrations.Core.CreateFileSignedUrl;
-
-export const UploadPrivateFile = base44.integrations.Core.UploadPrivateFile;
-
-
-
-
-
-
+export { supabase };
