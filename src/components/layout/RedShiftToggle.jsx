@@ -5,9 +5,14 @@ const RedShiftToggle = () => {
   const [isRedShiftActive, setIsRedShiftActive] = useState(false);
 
   useEffect(() => {
-    document.documentElement.style.filter = isRedShiftActive
-      ? 'sepia(1) hue-rotate(-10deg) saturate(2.2) brightness(0.75)'
-      : 'none';
+    const body = document.body;
+    if (!body) return undefined;
+
+    body.classList.toggle('red-shift-mode', isRedShiftActive);
+
+    return () => {
+      body.classList.remove('red-shift-mode');
+    };
   }, [isRedShiftActive]);
 
   return (

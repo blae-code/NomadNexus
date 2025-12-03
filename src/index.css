@@ -167,3 +167,102 @@ button:focus-visible {
 .animate-marquee {
   animation: marquee 5s linear infinite;
 }
+
+@layer base {
+  body.red-shift-mode {
+    filter: sepia(1) hue-rotate(-10deg) saturate(2.2) brightness(0.75);
+  }
+}
+
+@layer utilities {
+  .holo-glass {
+    @apply relative overflow-hidden border border-white/10 bg-white/5;
+    backdrop-filter: blur(14px) saturate(1.2);
+    box-shadow: 0 0 28px rgba(234, 88, 12, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+
+  .holo-glass::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(125deg, rgba(255, 149, 64, 0.18), rgba(64, 196, 255, 0.1));
+    mix-blend-mode: screen;
+    opacity: 0.9;
+    pointer-events: none;
+  }
+
+  .holo-glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  .scanline-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.24) 60%), linear-gradient(90deg, rgba(0, 255, 65, 0.08), rgba(0, 255, 65, 0.02));
+    background-size: 100% 4px, 6px 100%;
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
+  .brig-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(-45deg, rgba(255, 59, 0, 0.18) 0, rgba(255, 59, 0, 0.18) 14px, rgba(0, 0, 0, 0.6) 14px, rgba(0, 0, 0, 0.6) 28px);
+    border: 1px solid rgba(255, 59, 0, 0.35);
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 59, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffedd5;
+    text-transform: uppercase;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 0.4em;
+    pointer-events: none;
+    text-shadow: 0 0 6px rgba(255, 59, 0, 0.7);
+  }
+
+  .brig-overlay span {
+    padding: 10px 16px;
+    border: 1px solid rgba(255, 59, 0, 0.4);
+    background-color: rgba(0, 0, 0, 0.65);
+    box-shadow: inset 0 0 14px rgba(255, 59, 0, 0.2);
+  }
+
+  .holo-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(0, 255, 65, 0.18), transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(255, 191, 0, 0.15), transparent 38%);
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
+  .holo-thumb img {
+    filter: var(--holo-filter, none);
+    transition: filter 220ms ease, transform 220ms ease, opacity 220ms ease;
+  }
+
+  .holo-thumb:hover img {
+    filter: none;
+  }
+}
+
+@keyframes quantum-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-quantum-spin {
+  animation: quantum-spin 1.8s linear infinite;
+}

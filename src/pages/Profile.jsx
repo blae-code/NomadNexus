@@ -71,6 +71,9 @@ export default function ProfilePage() {
     }
   };
 
+  const isRestricted = (user?.status || user?.rank || '').toLowerCase() === 'restricted' ||
+    (Array.isArray(user?.flags) && user.flags.includes('restricted'));
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-zinc-200 flex items-center justify-center font-mono">
@@ -80,8 +83,13 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-zinc-200 p-6 flex flex-col items-center font-sans">
-       <div className="max-w-2xl w-full space-y-6">
+    <div className="min-h-screen bg-black text-zinc-200 p-6 flex flex-col items-center font-sans relative overflow-hidden">
+       {isRestricted && (
+         <div className="brig-overlay z-0">
+           <span>RESTRICTED // THE BRIG</span>
+         </div>
+       )}
+       <div className="max-w-2xl w-full space-y-6 relative z-10">
           <div className="flex items-center gap-4 mb-8">
              <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 flex items-center justify-center">
                 <User className="w-8 h-8 text-zinc-500" />
