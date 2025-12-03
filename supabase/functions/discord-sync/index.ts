@@ -30,7 +30,7 @@ const fetchMemberRoles = async (discordId: string) => {
       Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
     },
   });
-  if (res.status === 404) return [];
+  if (res.status === 404 || res.status === 401) return [];
   if (!res.ok) throw new Error(`Discord fetch failed: ${res.status}`);
   const data = await res.json();
   return Array.isArray(data.roles) ? data.roles : [];
@@ -55,16 +55,18 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const mappedRank = roles.length ? mapRolesToRank(roles) : null;
+    const effectiveRank = mappedRank ?? 'vagrant';
 
     await supabase
       .from('profiles')
       .update({
         discord_id: discordId,
-        rank: mappedRank ?? null,
+        rank: effectiveRank,
+        is_guest: false,
       })
       .eq('id', userId);
 
-    return new Response(JSON.stringify({ ok: true, roles, rank: mappedRank }), {
+    return new Response(JSON.stringify({ ok: true, roles, rank: effectiveRank }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {

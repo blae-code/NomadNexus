@@ -1,17 +1,17 @@
-import './App.css'
-import Pages from "./pages/index.jsx"
-import { Toaster } from "./components/ui/toaster"
-import AppShell from './components/layout/AppShell';
+import './App.css';
+import Pages from "./pages/index.jsx";
+import { Toaster } from "./components/ui/toaster";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
 
 function App() {
   return (
-    <>
-      <AppShell>
-        <Pages />
-      </AppShell>
+    <QueryClientProvider client={queryClient}>
+      <Pages />
       <Toaster />
-    </>
-  )
+    </QueryClientProvider>
+  );
 }
 
-export default App 
+export default App;

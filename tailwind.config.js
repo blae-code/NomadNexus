@@ -67,11 +67,11 @@ module.exports = {
   				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
-  		keyframes: {
-  			'accordion-down': {
-  				from: {
-  					height: '0'
-  				},
+ 		keyframes: {
+ 			'accordion-down': {
+ 				from: {
+ 					height: '0'
+ 				},
   				to: {
   					height: 'var(--radix-accordion-content-height)'
   				}
@@ -80,16 +80,44 @@ module.exports = {
   				from: {
   					height: 'var(--radix-accordion-content-height)'
   				},
-  				to: {
-  					height: '0'
-  				}
-  			}
-  		},
-  		animation: {
-  			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
-  		}
-  	}
+ 				to: {
+ 					height: '0'
+ 				}
+			},
+      scanline: {
+        '0%': { transform: 'translateY(-100%)' },
+        '100%': { transform: 'translateY(100%)' },
+      },
+      flicker: {
+        '0%, 100%': { opacity: '0.95' },
+        '5%': { opacity: '0.75' },
+        '10%': { opacity: '0.4' },
+        '15%': { opacity: '0.85' },
+        '25%': { opacity: '0.6' },
+        '30%': { opacity: '0.9' },
+        '45%': { opacity: '0.5' },
+        '60%': { opacity: '0.92' },
+        '75%': { opacity: '0.65' },
+        '90%': { opacity: '0.88' },
+      },
+      marquee: {
+        '0%': { transform: 'translateX(100%)' },
+        '100%': { transform: 'translateX(-100%)' },
+      },
+      'progress-indeterminate': {
+        '0%': { left: '-40%' },
+        '100%': { left: '100%' },
+      },
+ 		},
+ 		animation: {
+ 			'accordion-down': 'accordion-down 0.2s ease-out',
+			'accordion-up': 'accordion-up 0.2s ease-out',
+      scanline: 'scanline 6s linear infinite',
+      flicker: 'flicker 6s linear infinite',
+      marquee: 'marquee 12s linear infinite',
+      'progress-indeterminate': 'progress-indeterminate 1.2s ease-in-out infinite',
+ 		}
+ 	}
   },
   plugins: [require("tailwindcss-animate")],
 }

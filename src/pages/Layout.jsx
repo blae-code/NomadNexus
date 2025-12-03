@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPageUrl } from '@/utils';
-import { Terminal, Search, Clock, User } from 'lucide-react';
+import { Terminal, Search, Clock, User, LogOut } from 'lucide-react';
 import CommandPalette from "@/components/layout/CommandPalette";
 import { getRankColorClass } from "@/components/utils/rankUtils";
 import { cn } from "@/lib/utils";
@@ -139,22 +139,45 @@ export default function Layout({ children, currentPageName }) {
 
            <div className="h-8 w-[1px] bg-zinc-800" />
 
-           <a href={createPageUrl('Profile')} className="group flex items-center gap-3 cursor-pointer hover:bg-zinc-900 px-2 py-1 -mr-2 rounded transition-colors">
-              <div className="text-right hidden md:block">
-                 <div className="text-xs font-bold text-zinc-300 group-hover:text-white">
-                    {user ? (user.role === 'admin' ? "SYSTEM ADMIN" : (user.callsign || user.rsi_handle || "OPERATIVE")) : "GUEST"}
-                 </div>
-                 <div className={cn(
-                    "text-[9px] font-mono uppercase tracking-wider group-hover:text-white transition-colors",
-                    getRankColorClass(user?.rank, 'text')
-                 )}>
-                    {user?.rank || "VAGRANT"}
-                 </div>
-              </div>
-              <div className="w-8 h-8 bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-[#ea580c] transition-colors">
-                 <User className="w-4 h-4 text-zinc-500 group-hover:text-[#ea580c]" />
-              </div>
-           </a>
+           <div className="flex items-center gap-2">
+             <a href={createPageUrl('Profile')} className="group flex items-center gap-3 cursor-pointer hover:bg-zinc-900 px-2 py-1 rounded transition-colors">
+                <div className="text-right hidden md:block">
+                   <div className="text-xs font-bold text-zinc-300 group-hover:text-white">
+                      {user ? (user.role === 'admin' ? "SYSTEM ADMIN" : (user.callsign || user.rsi_handle || "OPERATIVE")) : "GUEST"}
+                   </div>
+                   <div className={cn(
+                      "text-[9px] font-mono uppercase tracking-wider group-hover:text-white transition-colors",
+                      getRankColorClass(user?.rank, 'text')
+                   )}>
+                      {user?.rank || "VAGRANT"}
+                   </div>
+                </div>
+                <div className="w-8 h-8 bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-[#ea580c] transition-colors">
+                   <User className="w-4 h-4 text-zinc-500 group-hover:text-[#ea580c]" />
+                </div>
+             </a>
+             <button
+               onClick={async () => {
+                 try {
+                   const isGuest = !!user?.is_guest;
+                   await supabase.auth.signOut();
+                   if (isGuest) {
+                     window.alert("Guest session closed. Apply to Redscar Nomads on RSI and complete registration within 24h to keep your progress.");
+                     window.location.href = "/login?upgrade=guest";
+                   } else {
+                     window.location.href = "/login";
+                   }
+                 } catch (err) {
+                   console.error("Logout failed", err);
+                 }
+               }}
+               className="h-8 px-3 border border-zinc-800 bg-zinc-950 text-zinc-300 text-[11px] font-mono tracking-widest hover:border-[#ea580c] hover:text-white flex items-center gap-2"
+               title="Logout"
+             >
+               <LogOut className="w-4 h-4" />
+               Exit
+             </button>
+           </div>
         </div>
       </header>
 

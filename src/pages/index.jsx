@@ -1,5 +1,6 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 
 import Layout from "./Layout.jsx";
 import Events from "./Events";
@@ -17,6 +18,8 @@ const CommsConsole = lazy(() => import('./CommsConsole'));
 const NomadOpsDashboard = lazy(() => import('./NomadOpsDashboard'));
 const Admin = lazy(() => import('./Admin'));
 const Academy = lazy(() => import('./Academy'));
+const NomadNexusShell = lazy(() => import('./NomadNexusShell'));
+const NomadNexusShellMk2 = lazy(() => import('./NomadNexusShell_Mk2'));
 
 const PageFallback = ({ label }) => (
   <div className="min-h-screen bg-zinc-950 text-zinc-400 flex items-center justify-center text-xs font-mono uppercase tracking-widest">
@@ -24,12 +27,32 @@ const PageFallback = ({ label }) => (
   </div>
 );
 
+const AuthCallback = () => {
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    const params = new URLSearchParams(hash);
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if (access_token && refresh_token && supabase) {
+      supabase.auth.setSession({ access_token, refresh_token })
+        .catch((err) => console.error('Auth callback error', err))
+        .finally(() => {
+          window.location.replace('/login');
+        });
+    } else {
+      window.location.replace('/login');
+    }
+  }, []);
+  return null;
+};
+
 export default function Pages() {
     return (
         <Router>
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route
                   path="/"
                   element={
@@ -90,6 +113,30 @@ export default function Pages() {
                       <Layout>
                         <Suspense fallback={<PageFallback label="Academy" />}>
                           <Academy />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/NexusShell"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<PageFallback label="Nexus Shell" />}>
+                          <NomadNexusShell />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/NexusShellMk2"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<PageFallback label="Nexus Shell Mk2" />}>
+                          <NomadNexusShellMk2 />
                         </Suspense>
                       </Layout>
                     </ProtectedRoute>

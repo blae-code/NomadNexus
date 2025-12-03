@@ -7,6 +7,7 @@ test.describe('Public auth surfaces', () => {
 test('Login page renders core form controls', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: /authentication gate/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /discord/i })).toBeVisible();
     await expect(page.getByLabel(/callsign/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /enter nexus/i })).toBeVisible();

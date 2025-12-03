@@ -139,11 +139,19 @@ export interface FleetAsset {
 // The roles array is critical for RBAC
 export interface Profile {
   id: string; // uuid (User's Supabase ID)
-  full_name: string | null;
+  email: string | null;
   callsign: string | null;
+  full_name: string | null;
+  username: string | null;
   rsi_handle: string | null;
+  discord_id: string | null;
+  avatar_url: string | null;
   rank: string | null; // e.g., "Vagrant", "Scout", "Pioneer"
-  roles: string[]; // text[] (e.g., ["pioneer", "scout"]) - CRITICAL for RBAC
+  roles?: string[]; // optional for compatibility; table currently tracks rank/specializations
+  specializations?: string[] | null;
+  updated_at: string | null;
+  is_guest: boolean | null;
+  guest_expires_at: string | null;
   // Add any other fields from your profiles table here
 }
 
