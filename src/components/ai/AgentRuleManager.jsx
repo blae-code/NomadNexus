@@ -15,9 +15,9 @@ export default function AgentRuleManager({ agentSlug }) {
 
   const { data: rules = [] } = useQuery({
     queryKey: ['agent-rules', agentSlug],
-    queryFn: () => supabaseApi.entities.AIAgentRule.list({ 
+    queryFn: () => supabaseApi.entities.AIAgentRule.list({
         filter: { agent_slug: agentSlug },
-        sort: { created_date: -1 }
+        sort: { created_at: -1 }
     }),
     enabled: isOpen
   });

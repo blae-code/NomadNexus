@@ -28,10 +28,10 @@ export default function AIInsightsPanel({ eventId, compact = false }) {
   // Fetch Logs
   const { data: logs, isLoading } = useQuery({
     queryKey: ['ai-logs', eventId],
-    queryFn: () => supabaseApi.entities.AIAgentLog.list({ 
+    queryFn: () => supabaseApi.entities.AIAgentLog.list({
       filter: { event_id: eventId },
-      sort: { created_date: -1 },
-      limit: 10 
+      sort: { created_at: -1 },
+      limit: 10
     }),
     refetchInterval: 10000, // Auto-refresh logs every 10s
     initialData: []
@@ -126,7 +126,7 @@ export default function AIInsightsPanel({ eventId, compact = false }) {
                            <div>
                              <div className="font-bold leading-none mb-1">{f.summary}</div>
                              <div className="opacity-80 font-mono leading-tight">{f.details || f.content}</div>
-                             <div className="mt-1 text-[9px] opacity-50 uppercase">{new Date(f.created_date).toLocaleTimeString()}</div>
+                             <div className="mt-1 text-[9px] opacity-50 uppercase">{new Date(f.created_at || f.created_date).toLocaleTimeString()}</div>
                            </div>
                         </div>
                       ))}

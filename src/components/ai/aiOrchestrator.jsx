@@ -22,10 +22,10 @@ async function runCommsWatch(eventId) {
   // Fetch Data
   const messages = await supabaseApi.entities.Message.list({
     filter: {
-      created_date: { $gte: lookbackTime }
+      created_at: { $gte: lookbackTime }
       // In a real app we might filter by event_id if messages were linked to events directly
     },
-    sort: { created_date: -1 },
+    sort: { created_at: -1 },
     limit: 50
   });
 

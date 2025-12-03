@@ -18,11 +18,11 @@ export default function TacticalStatusReporter({ user, eventId }) {
     queryKey: ['tactical-log', eventId],
     queryFn: async () => {
        const logs = await supabaseApi.entities.AIAgentLog.list({
-          filter: { 
+          filter: {
              event_id: eventId,
              agent_slug: 'tactical-computer'
           },
-          sort: { created_date: -1 },
+          sort: { created_at: -1 },
           limit: 1
        });
        return logs[0] || null;

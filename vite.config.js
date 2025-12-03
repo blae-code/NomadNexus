@@ -10,4 +10,16 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1100,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "livekit-vendor": ["livekit-client"],
+          "supabase-vendor": ["@supabase/supabase-js"],
+          "ui-icons": ["lucide-react"],
+        }
+      }
+    }
+  }
 })

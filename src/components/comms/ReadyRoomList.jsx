@@ -36,9 +36,10 @@ export default function ReadyRoomList({ selectedChannelId, onSelect, user }) {
           if (!isAccessible) return null;
 
           return (
-             <button
-                key={channel.id}
-                onClick={() => onSelect(channel)}
+            <button
+               key={channel.id}
+               onClick={() => onSelect(channel)}
+                data-testid="ready-room-option"
                 className={cn(
                    "flex items-center gap-3 px-3 py-2 rounded-sm text-left transition-all duration-200 border",
                    isSelected 

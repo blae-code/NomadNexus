@@ -20,9 +20,9 @@ import { useLiveKit, AUDIO_STATE } from '@/hooks/useLiveKit';
 function CommsLog({ eventId }) {
   const { data: messages } = useQuery({
     queryKey: ['comms-messages', eventId],
-    queryFn: () => supabaseApi.entities.Message.list({ 
-      sort: { created_date: -1 }, 
-      limit: 50 
+    queryFn: () => supabaseApi.entities.Message.list({
+      sort: { created_at: -1 },
+      limit: 50
     }),
     refetchInterval: 5000
   });
@@ -44,10 +44,10 @@ function CommsLog({ eventId }) {
          {logs.length === 0 ? (
             <div className="text-[10px] text-zinc-500 italic pl-2">No recent traffic recorded.</div>
          ) : (
-            logs.map(log => (
-               <div key={log.id} className="text-[10px] font-mono text-zinc-400 pl-2 border-l border-zinc-800">
+              logs.map(log => (
+                 <div key={log.id} className="text-[10px] font-mono text-zinc-400 pl-2 border-l border-zinc-800">
                   <span className="text-emerald-700 opacity-70 mr-2">
-                    {log.created_date ? new Date(log.created_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : '--:--:--'}
+                    {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : '--:--:--'}
                   </span>
                   <span className="text-zinc-300">{log.content.replace(/\[COMMS LOG\]|Tx on|: \*\*SIMULATED TRANSMISSION\*\*/g, '').trim()}</span>
                </div>
