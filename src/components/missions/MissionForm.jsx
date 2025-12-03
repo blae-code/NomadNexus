@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { supabaseApi } from '@/lib/supabaseApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,18 +23,18 @@ export default function MissionForm({ mission, open, onOpenChange }) {
   // Fetch potential assignees (Users) and assets (Fleet)
   const { data: users } = useQuery({
     queryKey: ['mission-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => supabaseApi.entities.User.list(),
     initialData: []
   });
 
   const { data: assets } = useQuery({
     queryKey: ['mission-assets'],
-    queryFn: () => base44.entities.FleetAsset.list(),
+    queryFn: () => supabaseApi.entities.FleetAsset.list(),
     initialData: []
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Mission.create(data),
+    mutationFn: (data) => supabaseApi.entities.Mission.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['missions']);
       toast.success("Mission initialized");
@@ -43,7 +43,7 @@ export default function MissionForm({ mission, open, onOpenChange }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data) => base44.entities.Mission.update(mission.id, data),
+    mutationFn: (data) => supabaseApi.entities.Mission.update(mission.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['missions']);
       toast.success("Mission updated");

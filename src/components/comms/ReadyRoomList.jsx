@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { Hash, Lock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessChannel } from "@/components/permissions";
@@ -8,7 +8,7 @@ import { canAccessChannel } from "@/components/permissions";
 export default function ReadyRoomList({ selectedChannelId, onSelect, user }) {
   const { data: channels, isLoading } = useQuery({
     queryKey: ['ready-room-channels'],
-    queryFn: () => base44.entities.Channel.list({
+    queryFn: () => supabaseApi.entities.Channel.list({
       // We want casual channels, and maybe public ones.
       // The API filter matches exact values usually.
       // For now let's fetch all and filter client side for flexibility since list is small

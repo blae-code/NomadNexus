@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,38 +15,38 @@ export default function SquadManager({ eventId }) {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    supabaseApi.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   // Fetch Data
   const { data: event } = useQuery({
     queryKey: ['event-detail', eventId],
-    queryFn: () => base44.entities.Event.get(eventId),
+    queryFn: () => supabaseApi.entities.Event.get(eventId),
     enabled: !!eventId
   });
 
   const { data: squads } = useQuery({
     queryKey: ['squads'],
-    queryFn: () => base44.entities.Squad.list(),
+    queryFn: () => supabaseApi.entities.Squad.list(),
     initialData: []
   });
 
   const { data: playerStatuses } = useQuery({
     queryKey: ['player-statuses', eventId],
-    queryFn: () => base44.entities.PlayerStatus.list({ event_id: eventId }),
+    queryFn: () => supabaseApi.entities.PlayerStatus.list({ event_id: eventId }),
     initialData: []
   });
 
   const { data: users } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => supabaseApi.entities.User.list(),
     initialData: []
   });
 
   // Mutation for moving users
   const moveUserMutation = useMutation({
     mutationFn: async ({ statusId, newSquadId }) => {
-      return base44.entities.PlayerStatus.update(statusId, {
+      return supabaseApi.entities.PlayerStatus.update(statusId, {
         assigned_squad_id: newSquadId
       });
     },

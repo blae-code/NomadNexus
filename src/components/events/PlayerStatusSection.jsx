@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,13 +21,13 @@ export default function PlayerStatusSection({ eventId }) {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    supabaseApi.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   // Fetch all statuses for this event
   const { data: statuses } = useQuery({
     queryKey: ['player-statuses', eventId],
-    queryFn: () => base44.entities.PlayerStatus.list({ 
+    queryFn: () => supabaseApi.entities.PlayerStatus.list({ 
         filter: { event_id: eventId },
         sort: { last_updated: -1 }
     }),
@@ -37,7 +37,7 @@ export default function PlayerStatusSection({ eventId }) {
   // Fetch users for display
   const { data: users } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => supabaseApi.entities.User.list(),
     initialData: []
   });
 
@@ -46,12 +46,12 @@ export default function PlayerStatusSection({ eventId }) {
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus) => {
       if (myStatus) {
-        return base44.entities.PlayerStatus.update(myStatus.id, {
+        return supabaseApi.entities.PlayerStatus.update(myStatus.id, {
           status: newStatus,
           last_updated: new Date().toISOString()
         });
       } else {
-        return base44.entities.PlayerStatus.create({
+        return supabaseApi.entities.PlayerStatus.create({
           user_id: currentUser.id,
           event_id: eventId,
           status: newStatus,

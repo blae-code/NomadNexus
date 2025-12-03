@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabaseApi } from "@/lib/supabaseApi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,9 +55,9 @@ function NetForm({ eventId, net, open, onOpenChange, squads }) {
       };
       
       if (net?.id) {
-        return base44.entities.VoiceNet.update(net.id, payload);
+        return supabaseApi.entities.VoiceNet.update(net.id, payload);
       } else {
-        return base44.entities.VoiceNet.create(payload);
+        return supabaseApi.entities.VoiceNet.create(payload);
       }
     },
     onSuccess: () => {
@@ -171,7 +171,7 @@ export default function CommsConfig({ eventId }) {
 
   const { data: voiceNets } = useQuery({
     queryKey: ['voice-nets', eventId],
-    queryFn: () => base44.entities.VoiceNet.list({ 
+    queryFn: () => supabaseApi.entities.VoiceNet.list({ 
       filter: { event_id: eventId }, 
       sort: { priority: 1, code: 1 } 
     }),
@@ -180,19 +180,19 @@ export default function CommsConfig({ eventId }) {
 
   const { data: squads } = useQuery({
     queryKey: ['squads'],
-    queryFn: () => base44.entities.Squad.list(),
+    queryFn: () => supabaseApi.entities.Squad.list(),
     initialData: []
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.VoiceNet.delete(id),
+    mutationFn: (id) => supabaseApi.entities.VoiceNet.delete(id),
     onSuccess: () => queryClient.invalidateQueries(['voice-nets', eventId])
   });
 
   const autoGenMutation = useMutation({
     mutationFn: async () => {
       // 1. Command Net
-      await base44.entities.VoiceNet.create({
+      await supabaseApi.entities.VoiceNet.create({
         event_id: eventId,
         code: "COMMAND",
         label: "Mission Command",
@@ -205,7 +205,7 @@ export default function CommsConfig({ eventId }) {
       // 2. Nets for each squad
       const promises = squads.map(squad => {
         const code = squad.name.split(' ')[0].toUpperCase().substring(0, 8);
-        return base44.entities.VoiceNet.create({
+        return supabaseApi.entities.VoiceNet.create({
           event_id: eventId,
           code: code,
           label: `${squad.name} Comms`,
@@ -217,7 +217,7 @@ export default function CommsConfig({ eventId }) {
       });
       
       // 3. General
-      promises.push(base44.entities.VoiceNet.create({
+      promises.push(supabaseApi.entities.VoiceNet.create({
         event_id: eventId,
         code: "GENERAL",
         label: "General Chatter",
