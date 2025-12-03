@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
-import AudioProcessor from '@/api/AudioProcessor';
-import SpatialMixer from '@/api/SpatialMixer';
-import TacticalTransceiver from '@/api/TacticalTransceiver';
-import ShipVoice from '@/api/ShipVoice';
+import AudioProcessor from '../api/AudioProcessor';
+import SpatialMixer from '../api/SpatialMixer';
+import TacticalTransceiver from '../api/TacticalTransceiver';
+import ShipVoice from '../api/ShipVoice';
 
 const ROLE_AUDIO_PROFILES = {
   Ranger: { type: 'radio', distortion: 0.3, highPass: 500, lowPass: 3500 },

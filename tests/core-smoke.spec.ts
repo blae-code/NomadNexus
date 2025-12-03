@@ -1,0 +1,53 @@
+import { test, expect } from '@playwright/test';
+
+const EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL;
+const PASSWORD = process.env.PLAYWRIGHT_TEST_PASSWORD;
+
+test.describe('Auth + onboarding smoke', () => {
+  test('Login surface renders and accepts input', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.getByRole('heading', { name: /nomad ops login/i })).toBeVisible();
+    await page.getByLabel(/callsign/i).fill('test@example.com');
+    await page.getByLabel(/password/i).fill('hunter2');
+    await expect(page.getByRole('button', { name: /login/i })).toBeEnabled();
+  });
+});
+
+test.describe('Authenticated flows', () => {
+  test.beforeEach(async ({ page }) => {
+    test.skip(!EMAIL || !PASSWORD, 'Set PLAYWRIGHT_TEST_EMAIL/PASSWORD to run authenticated flows');
+    await page.goto('/login');
+    await page.getByLabel(/callsign/i).fill(EMAIL!);
+    await page.getByLabel(/password/i).fill(PASSWORD!);
+    await page.getByRole('button', { name: /login/i }).click();
+    await page.waitForURL(/NomadOpsDashboard/, { timeout: 15000 });
+  });
+
+  test('Navigate to Events and open creation dialog', async ({ page }) => {
+    await page.goto('/Events');
+    await expect(page.getByRole('heading', { name: /operations board/i })).toBeVisible();
+    const createBtn = page.getByRole('button', { name: /create operation/i });
+    if (await createBtn.isVisible()) {
+      await createBtn.click();
+      await expect(page.getByText(/new operation/i)).toBeVisible();
+      await page.getByPlaceholder(/operation name/i).fill('Playwright Ops Test');
+      await page.getByLabel(/start time/i).fill('2030-01-01T12:00');
+      await page.getByPlaceholder(/system \/ planet \/ poi/i).fill('Test System');
+      await page.getByPlaceholder(/mission overview/i).fill('Automated smoke to verify event form wiring.');
+      await page.getByRole('button', { name: /save/i }).click({ delay: 50 });
+      // Success path relies on backend; we just assert dialog closes.
+      await expect(page.getByText(/new operation/i)).toBeHidden({ timeout: 5000 });
+    } else {
+      test.skip(true, 'Current user lacks create permission; skipping create smoke.');
+    }
+  });
+
+  test('Comms Console renders core panels (voice/data hub)', async ({ page }) => {
+    await page.goto('/CommsConsole');
+    await expect(page.getByText(/comms console/i)).toBeVisible();
+    await expect(page.getByText(/active nets/i)).toBeVisible();
+    await expect(page.getByText(/ready room/i)).toBeVisible();
+    // Ensure chat interface is mounted.
+    await expect(page.getByPlaceholder(/type to broadcast/i)).toBeVisible({ timeout: 5000 });
+  });
+});

@@ -7,7 +7,7 @@ import { getRankColorClass } from "@/components/utils/rankUtils";
 import { cn } from "@/lib/utils";
 import ActivityBar from "@/components/layout/ActivityBar";
 import NetworkStatusIndicator from "@/components/layout/NetworkStatusIndicator";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../lib/supabase";
 
 export default function Layout({ children, currentPageName }) {
   const [time, setTime] = useState(new Date());

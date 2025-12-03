@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLiveKit } from '@/hooks/useLiveKit';
 import { supabaseApi } from '@/lib/supabaseApi';
-import { supabase, hasSupabase } from '@/lib/supabaseClient';
+import { supabase, hasSupabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import QuantumSpooler from '../ui/QuantumSpooler';
 import HoloThumbnail from './HoloThumbnail';

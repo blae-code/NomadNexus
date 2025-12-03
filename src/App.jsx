@@ -1,6 +1,6 @@
 import './App.css'
-import Pages from "@/pages/index.jsx"
-import { Toaster } from "@/components/ui/toaster"
+import Pages from "./pages/index.jsx"
+import { Toaster } from "./components/ui/toaster"
 import AppShell from './components/layout/AppShell';
 
 function App() {

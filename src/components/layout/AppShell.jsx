@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import DataSlate from '../comms/DataSlate';
 import RedShiftToggle from './RedShiftToggle';
 import HoloBoard from '../comms/HoloBoard';
-import { useRiggsyGatedListening } from '@/hooks/useRiggsyGatedListening'; // Import the new hook
+import { useRiggsyGatedListening } from '../../hooks/useRiggsyGatedListening'; // Import the new hook
 import { Signal, Radio, Mic, Wand2, Rocket } from 'lucide-react';
 
 const AppShell = ({ children }) => {

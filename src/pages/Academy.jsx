@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrainingDeck } from '@/components/academy';
+import { TrainingDeck } from '../components/academy';
 
 const Academy = () => {
   return (
