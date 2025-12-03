@@ -8,14 +8,14 @@ type RescuePayload = {
   senderId: string;
 };
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const PROJECT_URL = Deno.env.get('PROJECT_URL') ?? '';
+const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY') ?? '';
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? '';
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? '';
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('Supabase URL or SERVICE_ROLE key missing. Configure environment variables.');
+if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
+  console.error('PROJECT_URL or SERVICE_ROLE_KEY missing. Configure environment variables.');
 }
 
 if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
@@ -24,7 +24,7 @@ if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
 
 webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
