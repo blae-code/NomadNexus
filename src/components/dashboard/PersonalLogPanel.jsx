@@ -39,7 +39,7 @@ export default function PersonalLogPanel({ user }) {
   // 3. Scout Nomination Logic
   const scoutNominationStatus = React.useMemo(() => {
      if (!user || user.rank !== 'Scout') return null;
-     const joinDate = new Date(user.created_date);
+    const joinDate = new Date(user.created_at || user.created_date);
      const now = new Date();
      const monthsSinceJoin = (now.getFullYear() - joinDate.getFullYear()) * 12 + (now.getMonth() - joinDate.getMonth());
      if (monthsSinceJoin >= 4) return { ready: true };

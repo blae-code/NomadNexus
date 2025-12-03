@@ -14,7 +14,7 @@ export default function CriticalAlertsWidget() {
         .from('ai_agent_logs')
         .select('*')
         .eq('severity', 'HIGH')
-        .order('created_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(5);
       if (error) {
         console.error('Critical alerts fetch failed', error);
@@ -48,7 +48,7 @@ export default function CriticalAlertsWidget() {
                <div key={alert.id} className="p-4 hover:bg-orange-950/5 transition-colors group/item cursor-pointer">
                  <div className="flex items-start justify-between mb-1">
                    <span className="text-xs font-bold text-orange-200 uppercase tracking-wider">{alert.summary}</span>
-                   <span className="text-[9px] font-mono text-orange-700">{new Date(alert.created_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                  <span className="text-[9px] font-mono text-orange-700">{new Date(alert.created_at || alert.created_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                  </div>
                  <p className="text-[11px] text-orange-100/70 font-mono leading-snug">
                    {alert.details}

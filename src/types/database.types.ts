@@ -46,6 +46,94 @@ export interface SessionProgress {
   completed: boolean; // boolean
 }
 
+// Table: events
+export interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  event_type: 'casual' | 'focused' | string;
+  priority: 'LOW' | 'STANDARD' | 'HIGH' | 'CRITICAL' | string;
+  status: string;
+  start_time: string;
+  location: string | null;
+  tags: string[] | null;
+  assigned_asset_ids: string[] | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+// Table: voice_nets
+export interface VoiceNet {
+  id: string;
+  code: string;
+  label: string;
+  type: string;
+  event_id: string | null;
+  priority: number | null;
+  linked_squad_id: string | null;
+}
+
+// Table: channels
+export interface Channel {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  type: string | null;
+  event_id?: string | null;
+  created_at?: string;
+}
+
+// Table: messages
+export interface Message {
+  id: string;
+  channel_id: string;
+  user_id: string;
+  content: string;
+  attachments: unknown[] | null;
+  created_at: string;
+}
+
+// Table: player_status
+export interface PlayerStatus {
+  id: string;
+  user_id: string;
+  event_id: string | null;
+  assigned_squad_id: string | null;
+  status: string | null;
+  last_updated: string | null;
+}
+
+// Table: squads
+export interface Squad {
+  id: string;
+  name: string;
+  event_id: string | null;
+  leader_id: string | null;
+  created_at?: string;
+}
+
+// Table: squad_members
+export interface SquadMember {
+  id?: string;
+  squad_id: string;
+  user_id: string;
+  role: string | null;
+  created_at?: string;
+}
+
+// Table: fleet_assets
+export interface FleetAsset {
+  id: string;
+  name: string;
+  model: string;
+  type: string;
+  status: string;
+  location: string | null;
+  coordinates?: { x: number; y: number };
+  maintenance_notes?: string | null;
+}
+
 // --- Profile Interface (from previous context, including roles) ---
 // Assuming 'profiles' table exists and maps to a User-like interface
 // The roles array is critical for RBAC
@@ -93,6 +181,46 @@ export type Database = {
         Row: Profile;
         Insert: Partial<Profile>;
         Update: Partial<Profile>;
+      };
+      events: {
+        Row: Event;
+        Insert: Partial<Event>;
+        Update: Partial<Event>;
+      };
+      voice_nets: {
+        Row: VoiceNet;
+        Insert: Partial<VoiceNet>;
+        Update: Partial<VoiceNet>;
+      };
+      channels: {
+        Row: Channel;
+        Insert: Partial<Channel>;
+        Update: Partial<Channel>;
+      };
+      messages: {
+        Row: Message;
+        Insert: Partial<Message>;
+        Update: Partial<Message>;
+      };
+      player_status: {
+        Row: PlayerStatus;
+        Insert: Partial<PlayerStatus>;
+        Update: Partial<PlayerStatus>;
+      };
+      squads: {
+        Row: Squad;
+        Insert: Partial<Squad>;
+        Update: Partial<Squad>;
+      };
+      squad_members: {
+        Row: SquadMember;
+        Insert: Partial<SquadMember>;
+        Update: Partial<SquadMember>;
+      };
+      fleet_assets: {
+        Row: FleetAsset;
+        Insert: Partial<FleetAsset>;
+        Update: Partial<FleetAsset>;
       };
     };
     Views: {

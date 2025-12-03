@@ -18,7 +18,7 @@ export default function ChatInterface({ channel, user }) {
     queryKey: ['channel-messages', channel.id],
     queryFn: () => supabaseApi.entities.Message.list({
       filter: { channel_id: channel.id },
-      sort: { created_date: 1 },
+      sort: { created_at: 1 },
       limit: 50
     }),
     refetchInterval: 3000,
@@ -104,7 +104,7 @@ export default function ChatInterface({ channel, user }) {
           messages.map((msg, idx) => {
             const isMe = msg.user_id === user?.id;
             const author = authors[msg.user_id] || { full_name: 'Unknown', callsign: 'Unknown' };
-            const showHeader = idx === 0 || messages[idx-1].user_id !== msg.user_id || (new Date(msg.created_date) - new Date(messages[idx-1].created_date) > 300000);
+            const showHeader = idx === 0 || messages[idx-1].user_id !== msg.user_id || (new Date(msg.created_at) - new Date(messages[idx-1].created_at) > 300000);
 
             return (
               <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
@@ -117,7 +117,7 @@ export default function ChatInterface({ channel, user }) {
                          {author.callsign || author.full_name}
                       </span>
                       <span className="text-[9px] text-zinc-600 font-mono">
-                         {new Date(msg.created_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                         {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </span>
                    </div>
                 )}

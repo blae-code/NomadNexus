@@ -115,7 +115,7 @@ export default function CommsConsolePage() {
   const { data: recentActivity } = useQuery({
     queryKey: ['comms-activity', selectedEventId],
     queryFn: async () => {
-      if (!selectedEventId) return {};
+      if (!supabase || !selectedEventId) return {};
       const { data: msgs, error } = await supabase
         .from('messages')
         .select('*')
@@ -133,8 +133,8 @@ export default function CommsConsolePage() {
              const code = match[1];
              const net = voiceNets.find(n => n.code === code);
              if (net) {
-               if (!activity[net.id] || new Date(msg.created_date) > new Date(activity[net.id])) {
-                 activity[net.id] = msg.created_date;
+               if (!activity[net.id] || new Date(msg.created_at) > new Date(activity[net.id])) {
+                 activity[net.id] = msg.created_at;
                }
              }
            }

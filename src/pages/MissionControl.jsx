@@ -24,7 +24,7 @@ export default function MissionControlPage() {
       const { data, error } = await supabase
         .from('missions')
         .select('*')
-        .order('created_date', { ascending: false });
+        .order('created_at', { ascending: false });
       if (error) {
         console.error('Missions fetch failed', error);
         return [];

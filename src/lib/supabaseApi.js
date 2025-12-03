@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 
 const tableMap = {
   Event: 'events',
-  PlayerStatus: 'player_statuses',
+  PlayerStatus: 'player_status',
   User: 'profiles',
   Squad: 'squads',
   SquadMember: 'squad_members',
