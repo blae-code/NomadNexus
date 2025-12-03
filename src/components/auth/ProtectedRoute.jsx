@@ -51,7 +51,7 @@ const ProtectedRoute = ({ children }) => {
   }, []);
 
   if (checking) return null;
-  if (expiredGuest) return <Navigate to="/login" replace />;
+  if (expiredGuest) return <Navigate to="/login?upgrade=guest" replace />;
   if (!authed) return <Navigate to="/login" replace />;
   return children;
 };

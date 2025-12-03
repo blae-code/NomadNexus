@@ -157,12 +157,12 @@ export default function Layout({ children, currentPageName }) {
                 </div>
              </a>
              <button
-               onClick={async () => {
-                 try {
-                   const isGuest = !!user?.is_guest;
-                   await supabase.auth.signOut();
-                   if (isGuest) {
-                     window.alert("Guest session closed. Apply to Redscar Nomads on RSI and complete registration within 24h to keep your progress.");
+                onClick={async () => {
+                  try {
+                    const isGuest = !!user?.is_guest;
+                    await supabase.auth.signOut();
+                    if (isGuest) {
+                     window.alert("Guest session terminated. To preserve intel, convert to a permanent Service Record now.");
                      window.location.href = "/login?upgrade=guest";
                    } else {
                      window.location.href = "/login";

@@ -6,9 +6,9 @@ const PASSWORD = process.env.PLAYWRIGHT_TEST_PASSWORD;
 test.describe('Auth + onboarding smoke', () => {
   test('Login surface renders and accepts input', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /authentication gate/i })).toBeVisible();
-    await page.getByLabel(/callsign/i).fill('test@example.com');
-    await page.getByLabel(/password/i).fill('hunter2');
+    await expect(page.getByRole('heading', { name: /authentication interface/i })).toBeVisible();
+    await page.getByLabel(/service id/i).fill('test@example.com');
+    await page.getByLabel(/encryption key/i).fill('hunter2');
     await expect(page.getByRole('button', { name: /enter nexus/i })).toBeEnabled();
   });
 });
@@ -17,9 +17,9 @@ test.describe('Authenticated flows', () => {
   test.beforeEach(async ({ page }) => {
     test.skip(!EMAIL || !PASSWORD, 'Set PLAYWRIGHT_TEST_EMAIL/PASSWORD to run authenticated flows');
     await page.goto('/login');
-    await page.getByLabel(/callsign/i).fill(EMAIL!);
-    await page.getByLabel(/password/i).fill(PASSWORD!);
-    await page.getByRole('button', { name: /login/i }).click();
+    await page.getByLabel(/service id/i).fill(EMAIL!);
+    await page.getByLabel(/encryption key/i).fill(PASSWORD!);
+    await page.getByRole('button', { name: /enter nexus/i }).click();
     await page.waitForURL(/NomadOpsDashboard/, { timeout: 15000 });
   });
 
