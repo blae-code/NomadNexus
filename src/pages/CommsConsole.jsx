@@ -21,11 +21,14 @@ import Holotable from "@/components/comms/Holotable";
 import SignalMap from "@/components/comms/SignalMap";
 import HangarDeck from "@/components/comms/HangarDeck";
 import TrainingDeck from "@/components/training/TrainingDeck";
+import QuantumSpooler from "@/components/ui/QuantumSpooler";
 
 import { usePTT } from '@/hooks/usePTT';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function CommsConsolePage() {
   usePTT();
+  const isMobile = useIsMobile();
   const [selectedEventId, setSelectedEventId] = React.useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('eventId') || "";
@@ -132,6 +135,32 @@ export default function CommsConsolePage() {
      }
   };
 
+  const renderPocketChannels = () => (
+    <div className="space-y-3">
+      <div className="text-[10px] font-mono uppercase tracking-[0.35em] text-amber-300">
+        Pocket MFD // Channels
+      </div>
+      <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+        {voiceNets.map((net) => (
+          <button
+            key={net.id}
+            onClick={() => setSelectedNet(net)}
+            className={cn(
+              'w-full text-left border border-zinc-800 bg-zinc-950/70 px-3 py-2 flex items-center justify-between hover:border-amber-500/60 hover:bg-zinc-900/60',
+              selectedNet?.id === net.id && 'border-amber-500 bg-amber-950/30 text-amber-100'
+            )}
+          >
+            <div className="flex flex-col">
+              <span className="text-xs font-black tracking-tight">{net.code}</span>
+              <span className="text-[10px] text-amber-200/80 uppercase tracking-[0.25em]">{net.label}</span>
+            </div>
+            <div className="text-[10px] text-zinc-500 uppercase">{net.type}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   React.useEffect(() => {
      if (userSquadId && voiceNets.length > 0 && !selectedNet) {
         const squadNet = voiceNets.find(n => n.linked_squad_id === userSquadId);
@@ -143,18 +172,38 @@ export default function CommsConsolePage() {
 
   const renderOpsMain = () => {
     if (!selectedEventId) return <SignalMap />;
+
     if (viewMode === 'hangar') {
       return <HangarDeck user={currentUser} />;
     }
+
     if (viewMode === 'command') {
+      if (isMobile) {
+        if (isLoading) {
+          return (
+            <div className="flex items-center justify-center py-10">
+              <QuantumSpooler label="POCKET MFD" size={74} />
+            </div>
+          );
+        }
+        if (voiceNets.length === 0) {
+          return (
+            <div className="border border-zinc-800 bg-zinc-950/70 p-4 text-[11px] text-zinc-400 font-mono uppercase tracking-[0.3em]">
+              Awaiting channels...
+            </div>
+          );
+        }
+        return renderPocketChannels();
+      }
       return <Holotable />;
     }
+
     return (
       <>
-        <ActiveNetPanel 
-          net={selectedNet} 
-          user={currentUser} 
-          eventId={selectedEventId} 
+        <ActiveNetPanel
+          net={selectedNet}
+          user={currentUser}
+          eventId={selectedEventId}
         />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TacticalStatusReporter eventId={selectedEventId} net={selectedNet} />
@@ -258,7 +307,7 @@ export default function CommsConsolePage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-         <aside className="w-80 border-r border-zinc-800 bg-zinc-950 flex flex-col">
+         <aside className="w-80 border-r border-zinc-800 bg-zinc-950 flex flex-col holo-glass">
             {consoleMode === 'ops' ? (
                <>
                   <div className="p-4 border-b border-zinc-800 bg-zinc-900/20 space-y-4">
@@ -274,7 +323,9 @@ export default function CommsConsolePage() {
                            <p className="text-[10px] text-zinc-500 font-mono">SELECT OPERATION //</p>
                         </div>
                      ) : isLoading ? (
-                        <div className="text-center text-zinc-500 py-10 text-xs font-mono animate-pulse">SCANNING FREQUENCIES...</div>
+                        <div className="flex items-center justify-center py-10">
+                          <QuantumSpooler label="SCANNING FREQS" size={70} />
+                        </div>
                      ) : voiceNets.length === 0 ? (
                         <div className="text-center text-zinc-500 py-10 text-xs font-mono">
                            NO ACTIVE NETS DETECTED.<br/>INITIALIZE VIA OPS BOARD.
@@ -283,11 +334,18 @@ export default function CommsConsolePage() {
                         viewMode === 'hierarchy' ? (
                            <FleetHierarchy eventId={selectedEventId} />
                         ) : viewMode === 'command' ? (
-                           <Holotable />
+                           isMobile ? (
+                              <div className="space-y-2">
+                                 <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-amber-300">Channels (3D Map hidden on mobile)</div>
+                                 {renderPocketChannels()}
+                              </div>
+                           ) : (
+                              <Holotable />
+                           )
                         ) : viewMode === 'hangar' ? (
                            <HangarDeck user={currentUser} />
                         ) : (
-                           <NetList 
+                           <NetList
                               nets={voiceNets} 
                               selectedNetId={selectedNet?.id} 
                               onSelect={setSelectedNet}
