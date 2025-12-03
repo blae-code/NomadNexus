@@ -101,8 +101,7 @@ export const NexusBadge = ({ status = "online", label, className, ...props }: Ne
   return (
     <div {...props} className={merged}>
       <span
-        className="relative h-3 w-3 shrink-0"
-        style={{ clipPath: "circle(50% at 50% 50%)" }}
+        className="relative h-3 w-3 shrink-0 rounded-full"
       >
         <span
           className={twMerge(
