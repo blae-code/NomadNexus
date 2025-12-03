@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Rocket, Car, Wrench, MapPin, User } from 'lucide-react';
+import { Plus, Rocket, Car, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AssetList({ onSelect, selectedId }) {
@@ -16,7 +16,15 @@ export default function AssetList({ onSelect, selectedId }) {
 
   const { data: assets } = useQuery({
     queryKey: ['fleet-assets'],
-    queryFn: () => base44.entities.FleetAsset.list(),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('fleet_assets').select('*');
+      if (error) {
+        console.error('Fleet assets fetch failed', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 
@@ -111,10 +119,12 @@ export function AssetFormDialog({ open, onOpenChange, trigger, asset }) {
 
       try {
          if (asset) {
-            await base44.entities.FleetAsset.update(asset.id, data);
+            const { error } = await supabase.from('fleet_assets').update(data).eq('id', asset.id);
+            if (error) throw error;
             toast.success("Asset updated");
          } else {
-            await base44.entities.FleetAsset.create(data);
+            const { error } = await supabase.from('fleet_assets').insert(data);
+            if (error) throw error;
             toast.success("Asset registered");
          }
          queryClient.invalidateQueries(['fleet-assets']);

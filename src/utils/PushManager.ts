@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 
 // Helper function to convert VAPID public key to Uint8Array
 function urlBase64ToUint8Array(base64String: string) {
@@ -81,14 +81,23 @@ class PushManager {
       console.log('User subscribed to push:', pushSubscription);
 
       // Send subscription to your backend
-      await base44.post('/api/notifications/subscribe', {
+      const body = {
         userId,
         endpoint: pushSubscription.endpoint,
         keys: {
           p256dh: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(pushSubscription.getKey('p256dh')!)))),
           auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(pushSubscription.getKey('auth')!)))),
         },
-      });
+      };
+
+      try {
+        if (!supabase) throw new Error('Supabase not configured');
+        const { error } = await supabase.functions.invoke('push-subscribe', { body });
+        if (error) throw error;
+      } catch (err) {
+        console.error('Supabase push subscribe failed', err);
+        throw err;
+      }
       console.log('Push subscription sent to backend.');
       return pushSubscription;
     } catch (error) {

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,24 @@ export default function RoleManager() {
   // Fetch Roles
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => base44.entities.Role.list()
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('roles').select('*');
+      if (error) {
+        console.error('Roles fetch failed', error);
+        return [];
+      }
+      return data || [];
+    }
   });
 
   // Mutations
   const createRoleMutation = useMutation({
-    mutationFn: (data) => base44.entities.Role.create(data),
+    mutationFn: async (data) => {
+      if (!supabase) throw new Error('Supabase not configured');
+      const { error } = await supabase.from('roles').insert(data);
+      if (error) throw error;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['roles']);
       setIsCreating(false);
@@ -34,7 +46,11 @@ export default function RoleManager() {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Role.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      if (!supabase) throw new Error('Supabase not configured');
+      const { error } = await supabase.from('roles').update(data).eq('id', id);
+      if (error) throw error;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['roles']);
       setEditingRole(null);
@@ -43,7 +59,11 @@ export default function RoleManager() {
   });
 
   const deleteRoleMutation = useMutation({
-    mutationFn: (id) => base44.entities.Role.delete(id),
+    mutationFn: async (id) => {
+      if (!supabase) throw new Error('Supabase not configured');
+      const { error } = await supabase.from('roles').delete().eq('id', id);
+      if (error) throw error;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['roles']);
       toast.success("Role deleted");

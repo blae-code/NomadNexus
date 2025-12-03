@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Lock, Hash, Mic, EyeOff } from "lucide-react";
@@ -10,12 +10,25 @@ export default function ChannelsPage() {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    const fetchUser = async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setCurrentUser(data?.user || null);
+    };
+    fetchUser().catch((err) => console.error('Channels auth fetch failed', err));
   }, []);
 
   const { data: channels, isLoading } = useQuery({
     queryKey: ['channels'],
-    queryFn: () => base44.entities.Channel.list(),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('channels').select('*');
+      if (error) {
+        console.error('Channels fetch failed', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { ShieldAlert, Radio } from "lucide-react";
 
@@ -8,11 +8,17 @@ export default function RescueAlertPanel() {
   const { data: activeRescue } = useQuery({
     queryKey: ['rescue-alert-panel'],
     queryFn: async () => {
-      const status = await base44.entities.PlayerStatus.list({
-        filter: { status: 'DISTRESS' },
-        limit: 1
-      });
-      return status.length > 0 ? status[0] : null;
+      if (!supabase) return null;
+      const { data, error } = await supabase
+        .from('player_status')
+        .select('*')
+        .eq('status', 'DISTRESS')
+        .limit(1);
+      if (error) {
+        console.error('Rescue panel fetch failed', error);
+        return null;
+      }
+      return (data || [])[0] || null;
     },
     refetchInterval: 5000
   });

@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Shield, Users, Lock } from "lucide-react";
 import RoleManager from "@/components/auth/RoleManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,7 +55,15 @@ export default function AdminPage() {
 function UsersTab() {
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Users fetch failed', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: [],
   });
 
@@ -96,7 +104,8 @@ function BrigActions({ user }) {
   const silence = async () => {
     setMuting(true);
     try {
-      await base44.functions.invoke('silenceUser', { userId: user.id });
+      // TODO: Implement Supabase RPC/edge function for silencing users
+      console.warn('Silence user not implemented for Supabase');
     } catch (err) {
       setError('Silence failed');
       console.error(err);
@@ -107,7 +116,8 @@ function BrigActions({ user }) {
   const discharge = async () => {
     setBanning(true);
     try {
-      await base44.functions.invoke('dischargeUser', { userId: user.id });
+      // TODO: Implement Supabase RPC/edge function for discharging users
+      console.warn('Discharge user not implemented for Supabase');
     } catch (err) {
       setError('Discharge failed');
       console.error(err);

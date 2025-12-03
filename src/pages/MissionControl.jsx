@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Target, Calendar, MapPin, Users, User, Rocket, Clock, CheckSquare, AlertTriangle, ArrowRight, RotateCw, ExternalLink } from 'lucide-react';
+import { Target, MapPin, Users, User, Rocket, Clock, CheckSquare, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import MissionForm from '@/components/missions/MissionForm';
 import { toast } from 'sonner';
@@ -19,7 +19,18 @@ export default function MissionControlPage() {
 
   const { data: missions, isLoading } = useQuery({
     queryKey: ['missions'],
-    queryFn: () => base44.entities.Mission.list({ sort: { created_date: -1 } }),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .order('created_date', { ascending: false });
+      if (error) {
+        console.error('Missions fetch failed', error);
+        return [];
+      }
+      return data || [];
+    },
     refetchInterval: 10000,
     initialData: []
   });
@@ -143,8 +154,32 @@ function MissionDetailView({ mission, onEdit }) {
    const queryClient = useQueryClient();
 
    // Fetch linked data
-   const { data: allUsers } = useQuery({ queryKey: ['mission-users-detail'], queryFn: () => base44.entities.User.list(), initialData: [] });
-   const { data: allAssets } = useQuery({ queryKey: ['mission-assets-detail'], queryFn: () => base44.entities.FleetAsset.list(), initialData: [] });
+   const { data: allUsers } = useQuery({
+      queryKey: ['mission-users-detail'],
+      queryFn: async () => {
+         if (!supabase) return [];
+         const { data, error } = await supabase.from('profiles').select('*');
+         if (error) {
+            console.error('Mission users fetch failed', error);
+            return [];
+         }
+         return data || [];
+      },
+      initialData: []
+   });
+   const { data: allAssets } = useQuery({
+      queryKey: ['mission-assets-detail'],
+      queryFn: async () => {
+         if (!supabase) return [];
+         const { data, error } = await supabase.from('fleet_assets').select('*');
+         if (error) {
+            console.error('Mission assets fetch failed', error);
+            return [];
+         }
+         return data || [];
+      },
+      initialData: []
+   });
 
    const assignedUsers = allUsers.filter(u => mission.assigned_user_ids?.includes(u.id));
    const assignedAssets = allAssets.filter(a => mission.assigned_asset_ids?.includes(a.id));
@@ -158,7 +193,8 @@ function MissionDetailView({ mission, onEdit }) {
          } else {
             newObjectives[objectiveIndex] = { ...newObjectives[objectiveIndex], is_completed: isCompleted };
          }
-         return base44.entities.Mission.update(mission.id, { objectives: newObjectives });
+         const { error } = await supabase.from('missions').update({ objectives: newObjectives }).eq('id', mission.id);
+         if (error) throw error;
       },
       onSuccess: () => {
          queryClient.invalidateQueries(['missions']);
@@ -167,7 +203,10 @@ function MissionDetailView({ mission, onEdit }) {
    });
 
    const updateStatusMutation = useMutation({
-      mutationFn: (status) => base44.entities.Mission.update(mission.id, { status }),
+      mutationFn: async (status) => {
+        const { error } = await supabase.from('missions').update({ status }).eq('id', mission.id);
+        if (error) throw error;
+      },
       onSuccess: () => {
          queryClient.invalidateQueries(['missions']);
          toast.success(`Mission status: ${status}`);

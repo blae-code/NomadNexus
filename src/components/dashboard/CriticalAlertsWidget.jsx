@@ -1,18 +1,27 @@
 import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AlertTriangle, ShieldAlert, ChevronRight } from "lucide-react";
+import { AlertTriangle, ShieldAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 export default function CriticalAlertsWidget() {
   const { data: alerts = [] } = useQuery({
     queryKey: ['dashboard-alerts'],
-    queryFn: () => base44.entities.AIAgentLog.list({
-      filter: { severity: 'HIGH' },
-      sort: { created_date: -1 },
-      limit: 5
-    }),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('ai_agent_logs')
+        .select('*')
+        .eq('severity', 'HIGH')
+        .order('created_date', { ascending: false })
+        .limit(5);
+      if (error) {
+        console.error('Critical alerts fetch failed', error);
+        return [];
+      }
+      return data || [];
+    },
     refetchInterval: 5000
   });
 

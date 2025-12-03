@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import CommsEventSelector from "@/components/comms/CommsEventSelector";
 import NetList from "@/components/comms/NetList";
 import ActiveNetPanel from "@/components/comms/ActiveNetPanel";
@@ -40,7 +40,12 @@ export default function CommsConsolePage() {
   const [userSquadId, setUserSquadId] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    const fetchUser = async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setCurrentUser(data?.user || null);
+    };
+    fetchUser().catch((err) => console.error('Comms auth fetch failed', err));
   }, []);
 
   if (currentUser && !canAccessFocusedVoice(currentUser)) {
@@ -60,18 +65,24 @@ export default function CommsConsolePage() {
     queryKey: ['console-user-squad', selectedEventId, currentUser?.id],
     queryFn: async () => {
        if (!selectedEventId || !currentUser) return null;
-       const statuses = await base44.entities.PlayerStatus.list({ 
-          user_id: currentUser.id, 
-          event_id: selectedEventId 
-       });
-       if (statuses.length > 0 && statuses[0].assigned_squad_id) {
-          setUserSquadId(statuses[0].assigned_squad_id);
-          return statuses[0].assigned_squad_id;
+       const { data: statuses, error: statusErr } = await supabase
+         .from('player_status')
+         .select('assigned_squad_id')
+         .eq('user_id', currentUser.id)
+         .eq('event_id', selectedEventId);
+       if (statusErr) console.error('Squad status fetch failed', statusErr);
+       if ((statuses || []).length > 0 && statuses[0].assigned_squad_id) {
+         setUserSquadId(statuses[0].assigned_squad_id);
+         return statuses[0].assigned_squad_id;
        }
-       const memberships = await base44.entities.SquadMember.list({ user_id: currentUser.id });
-       if (memberships.length > 0) {
-          setUserSquadId(memberships[0].squad_id);
-          return memberships[0].squad_id;
+       const { data: memberships, error: memberErr } = await supabase
+         .from('squad_members')
+         .select('squad_id')
+         .eq('user_id', currentUser.id);
+       if (memberErr) console.error('Squad membership fetch failed', memberErr);
+       if ((memberships || []).length > 0) {
+         setUserSquadId(memberships[0].squad_id);
+         return memberships[0].squad_id;
        }
        setUserSquadId(null);
        return null;
@@ -81,10 +92,19 @@ export default function CommsConsolePage() {
 
   const { data: voiceNets, isLoading } = useQuery({
     queryKey: ['voice-nets', selectedEventId],
-    queryFn: () => base44.entities.VoiceNet.list({ 
-      filter: { event_id: selectedEventId },
-      sort: { priority: 1 } 
-    }),
+    queryFn: async () => {
+      if (!supabase || !selectedEventId) return [];
+      const { data, error } = await supabase
+        .from('voice_nets')
+        .select('*')
+        .eq('event_id', selectedEventId)
+        .order('priority', { ascending: true });
+      if (error) {
+        console.error('Voice nets fetch failed', error);
+        return [];
+      }
+      return data || [];
+    },
     enabled: !!selectedEventId,
     initialData: []
   });
@@ -93,12 +113,17 @@ export default function CommsConsolePage() {
     queryKey: ['comms-activity', selectedEventId],
     queryFn: async () => {
       if (!selectedEventId) return {};
-      const msgs = await base44.entities.Message.list({
-        sort: { created_date: -1 },
-        limit: 20
-      });
+      const { data: msgs, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) {
+        console.error('Activity fetch failed', error);
+        return {};
+      }
       const activity = {};
-      msgs.forEach(msg => {
+      (msgs || []).forEach(msg => {
         if (msg.content.includes('[COMMS LOG]')) {
            const match = msg.content.match(/TX on ([^:]+):/);
            if (match && match[1]) {

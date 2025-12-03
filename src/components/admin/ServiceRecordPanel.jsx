@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 
 const CERTS = ['MEDICAL_CERT', 'NAV_CERT', 'COMBAT_CERT', 'HEAVY_CERT', 'RANGER_CERT', 'ENGINEERING_CERT'];
 
@@ -9,7 +9,16 @@ const ServiceRecordPanel = ({ userId }) => {
 
   useEffect(() => {
     if (!userId) return;
-    base44.entities.User.get(userId).then(setUser).catch(console.error);
+    const fetchUser = async () => {
+      if (!supabase) return;
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (error) {
+        console.error('Service record fetch failed', error);
+        return;
+      }
+      setUser(data);
+    };
+    fetchUser();
   }, [userId]);
 
   const toggleCert = (cert) => {
@@ -22,7 +31,15 @@ const ServiceRecordPanel = ({ userId }) => {
   const save = async () => {
     if (!user) return;
     setSaving(true);
-    await base44.entities.User.update(user.id, { certifications: user.certifications || [] });
+    if (supabase) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ certifications: user.certifications || [] })
+        .eq('id', user.id);
+      if (error) {
+        console.error('Service record save failed', error);
+      }
+    }
     setSaving(false);
   };
 

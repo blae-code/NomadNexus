@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertTriangle, Wifi, WifiOff, Coins, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { createPageUrl } from "@/utils";
 
@@ -10,16 +10,30 @@ export default function StatusAlertsWidget() {
   const [user, setUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    const fetchUser = async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setUser(data?.user || null);
+    };
+    fetchUser().catch((err) => console.error('Status widget auth fetch failed', err));
   }, []);
 
   // 1. Rescue Alert Check (Any player in DISTRESS)
   const { data: distressSignals = [] } = useQuery({
     queryKey: ['dashboard-distress'],
-    queryFn: () => base44.entities.PlayerStatus.list({
-      filter: { status: 'DISTRESS' },
-      limit: 1
-    }),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('player_status')
+        .select('id')
+        .eq('status', 'DISTRESS')
+        .limit(1);
+      if (error) {
+        console.error('Distress fetch failed', error);
+        return [];
+      }
+      return data || [];
+    },
     refetchInterval: 5000
   });
   const hasRescueRequest = distressSignals.length > 0;
@@ -29,12 +43,17 @@ export default function StatusAlertsWidget() {
     queryKey: ['my-comms-status', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const statuses = await base44.entities.PlayerStatus.list({
-        user_id: user.id,
-        sort: { last_updated: -1 },
-        limit: 1
-      });
-      return statuses[0] || null;
+      const { data, error } = await supabase
+        .from('player_status')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('last_updated', { ascending: false })
+        .limit(1);
+      if (error) {
+        console.error('My status fetch failed', error);
+        return null;
+      }
+      return (data || [])[0] || null;
     },
     enabled: !!user,
     refetchInterval: 10000
@@ -49,16 +68,23 @@ export default function StatusAlertsWidget() {
   const { data: cofferWarning } = useQuery({
     queryKey: ['dashboard-coffer-check'],
     queryFn: async () => {
-      // Fetch General coffer transactions to calculate balance (since Coffer entity doesn't have balance field in schema provided)
-      // Wait, the schema for Coffer doesn't have a 'balance'. I need to sum transactions.
-      // Let's fetch Coffers first.
-      const coffers = await base44.entities.Coffer.list({ filter: { type: 'GENERAL' }, limit: 1 });
-      if (coffers.length === 0) return null;
-      
+      if (!supabase) return null;
+      const { data: coffers, error: cofferErr } = await supabase
+        .from('coffers')
+        .select('id')
+        .eq('type', 'GENERAL')
+        .limit(1);
+      if (cofferErr || !coffers || coffers.length === 0) return null;
       const cofferId = coffers[0].id;
-      const transactions = await base44.entities.CofferTransaction.list({ filter: { coffer_id: cofferId } });
-      
-      const balance = transactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
+      const { data: txs, error: txErr } = await supabase
+        .from('coffer_transactions')
+        .select('amount')
+        .eq('coffer_id', cofferId);
+      if (txErr) {
+        console.error('Coffer tx fetch failed', txErr);
+        return null;
+      }
+      const balance = (txs || []).reduce((acc, tx) => acc + (tx.amount || 0), 0);
       return balance < 500000 ? balance : null;
     }
   });

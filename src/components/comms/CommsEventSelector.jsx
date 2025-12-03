@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Radio } from "lucide-react";
 
@@ -9,15 +9,17 @@ export default function CommsEventSelector({ selectedEventId, onSelect }) {
     queryKey: ['ops-events'],
     queryFn: async () => {
       // Fetch active and upcoming events
-      const now = new Date();
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      // Simple fetch, sorting by date
-      return base44.entities.Event.list({
-        sort: { start_time: 1 },
-        limit: 10
-      });
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('start_time', { ascending: true })
+        .limit(10);
+      if (error) {
+        console.error('Comms event fetch failed', error);
+        return [];
+      }
+      return data || [];
     },
     initialData: []
   });
