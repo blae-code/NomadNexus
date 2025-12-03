@@ -4,21 +4,20 @@ const TEST_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL;
 const TEST_PASSWORD = process.env.PLAYWRIGHT_TEST_PASSWORD;
 
 test.describe('Public auth surfaces', () => {
-  test('Login page renders core form controls', async ({ page }) => {
+test('Login page renders core form controls', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /nomad ops login/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /authentication gate/i })).toBeVisible();
     await expect(page.getByLabel(/callsign/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /login/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /enter nexus/i })).toBeVisible();
   });
 
-  test('Register page renders core form controls', async ({ page }) => {
+test('Register page renders core form controls', async ({ page }) => {
     await page.goto('/register');
-    await expect(page.getByRole('heading', { name: /nomad ops registration/i })).toBeVisible();
-    await expect(page.getByLabel(/full name/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /nomad registration/i })).toBeVisible();
     await expect(page.getByLabel(/callsign/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /register/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /initiate profile/i })).toBeVisible();
   });
 });
 

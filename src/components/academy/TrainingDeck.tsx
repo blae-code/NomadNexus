@@ -6,11 +6,11 @@ import { supabase } from '@/lib/supabase';
 const TrainingDeck: React.FC = () => {
   const { skills, loading, error } = useSkills();
   const { requestInstruction, loading: isRequesting, error: requestError } = useRequestInstruction();
-  const [cadetId, setCadetId] = useState<string | null>(null);
+  const [nomadId, setNomadId] = useState<string | null>(null);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const { certifications } = useMyCertifications(cadetId || undefined);
+  const { certifications } = useMyCertifications(nomadId || undefined);
 
   const playDataUploadFx = () => {
     // Placeholder SFX hook
@@ -27,11 +27,11 @@ const TrainingDeck: React.FC = () => {
         const { data, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
         const user = data?.user;
-        setCadetId(user?.id || null);
+        setNomadId(user?.id || null);
         setStatusBanner(user ? null : 'Log in to dispatch instruction requests.');
       } catch (err) {
         console.error('Auth check failed', err);
-        setStatusBanner('Unable to verify cadet ID. Check comms link.');
+        setStatusBanner('Unable to verify nomad ID. Check comms link.');
       }
     };
     checkAuth();
@@ -45,12 +45,12 @@ const TrainingDeck: React.FC = () => {
   );
 
   const handleRequest = async (skillId: string) => {
-    if (!cadetId) {
-      setStatusBanner('Cadet ID missing. Authenticate to proceed.');
+    if (!nomadId) {
+      setStatusBanner('Nomad ID missing. Authenticate to proceed.');
       return false;
     }
     playDataUploadFx();
-    const result = await requestInstruction(skillId, cadetId);
+    const result = await requestInstruction(skillId, nomadId);
     if ((result as any)?.error) {
       setStatusBanner('Request failed. Retry or contact ops.');
       return false;

@@ -9,6 +9,7 @@ import PioneerUplink from "@/components/dashboard/PioneerUplink";
 import RankVisualizer from "@/components/dashboard/RankVisualizer";
 import CommanderDashboard from "@/components/dashboard/CommanderDashboard";
 import OperatorDashboard from "@/components/dashboard/OperatorDashboard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRankValue } from "@/components/permissions";
@@ -52,65 +53,116 @@ export default function NomadOpsDashboard() {
   }, [user]);
 
   const StandardDashboard = () => (
-    <div className="h-full w-full flex flex-col font-sans relative">
-      {/* Main Grid Content */}
-      <main className="flex-1 p-4 grid grid-cols-12 grid-rows-12 gap-4 relative h-full">
-         
-         {/* Background Grid Effect */}
-         <div className="absolute inset-0 pointer-events-none opacity-[0.03]" 
-              style={{ backgroundImage: 'linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)', backgroundSize: '40px 40px' }} 
-         />
+    <div className="h-full w-full grid grid-rows-[auto_1fr] bg-[#0b0f12] text-tech-white relative overflow-hidden">
+      {/* Background grid */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
+        style={{
+          backgroundImage:
+            'linear-gradient(#20242c 1px, transparent 1px), linear-gradient(90deg, #20242c 1px, transparent 1px)',
+          backgroundSize: '46px 46px',
+        }}
+      />
 
-         {/* 1. Left Column (Org Resources) */}
-         <div className="col-span-12 md:col-span-4 lg:col-span-3 row-span-12 md:row-span-12 overflow-hidden">
-            <OrgResourcesWidget />
-         </div>
+      {/* Faux intranet header */}
+      <header className="relative z-10 h-12 px-4 flex items-center justify-between border-b border-burnt-orange/60 bg-black/70 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 bg-burnt-orange text-black font-black flex items-center justify-center text-sm">
+            NX
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-[0.25em] text-burnt-orange">Nomad Nexus</div>
+            <div className="text-[11px] text-zinc-400">Intranet Control Surface</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-zinc-400">
+          <span className="px-2 py-1 border border-zinc-700 bg-black/50">SYS OK</span>
+          <span className="px-2 py-1 border border-zinc-700 bg-black/50">{user?.rank || 'VAGRANT'} ACCESS</span>
+        </div>
+      </header>
 
-         {/* 2. Main Center Area (Visual Hub) */}
-         <div className="col-span-12 md:col-span-8 lg:col-span-6 row-span-12 md:row-span-12 flex flex-col gap-4">
-            
-            {/* A. Event Projection (Primary Visual) - 40% Height */}
-            <div className="h-[40%] shrink-0">
+      {/* Main workspace */}
+      <main className="relative z-10 h-full grid grid-cols-[260px_1fr_320px] gap-4 p-4 overflow-hidden">
+        {/* Explorer / Systems rail */}
+        <div className="h-full grid grid-rows-[auto_1fr] border border-zinc-800 bg-black/60 shadow-[0_0_20px_rgba(0,0,0,0.4)]">
+          <div className="px-3 py-2 border-b border-zinc-800 uppercase text-[11px] tracking-[0.2em] text-zinc-400">
+            Systems
+          </div>
+          <div className="overflow-auto divide-y divide-zinc-800">
+            <div className="p-3">
+              <OrgResourcesWidget />
+            </div>
+            <div className="p-3">
+              <StatusAlertsWidget />
+            </div>
+            <div className="p-3">
+              <ArmoryStatusPanel />
+            </div>
+          </div>
+        </div>
+
+        {/* Center workbench with tabs */}
+        <div className="h-full min-h-0 border border-zinc-800 bg-[#0e141a]/80 shadow-[0_0_24px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden">
+          <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-black/50">
+            <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">Mission Workspace</div>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+              <span className="px-2 py-1 border border-zinc-800 bg-zinc-900/50">LIVE</span>
+              <span className="px-2 py-1 border border-zinc-800 bg-zinc-900/50">
+                {new Date().toLocaleTimeString([], { hour12: false })}
+              </span>
+            </div>
+          </div>
+          <Tabs defaultValue="ops" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid grid-cols-3 bg-zinc-900 border-b border-zinc-800 h-10 rounded-none">
+              <TabsTrigger value="ops" className="text-[11px] uppercase tracking-[0.15em]">Ops Feed</TabsTrigger>
+              <TabsTrigger value="intel" className="text-[11px] uppercase tracking-[0.15em]">Intel</TabsTrigger>
+              <TabsTrigger value="resources" className="text-[11px] uppercase tracking-[0.15em]">Resources</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="ops" className="flex-1 overflow-hidden p-4 flex flex-col gap-4">
+              <div className="h-[38%] min-h-[200px]">
                 <EventProjectionPanel user={user} />
-            </div>
+              </div>
+              <div className="flex-1 min-h-0">
+                <PersonalLogPanel user={user} />
+              </div>
+            </TabsContent>
 
-            {/* B. Personal Log (Alerts) - Variable */}
-            <div className="flex-1 min-h-0">
-               <PersonalLogPanel user={user} />
-            </div>
+            <TabsContent value="intel" className="flex-1 overflow-hidden p-4 flex flex-col gap-4">
+              <div className="flex-1 min-h-0">
+                <OrgStatusWidget />
+              </div>
+              <div className="h-[32%] min-h-[180px]">
+                <RankVisualizer currentRank={user?.rank || 'Vagrant'} />
+              </div>
+            </TabsContent>
 
-            {/* C. Armory Status - Fixed Height */}
-            <div className="h-32 shrink-0">
-               <ArmoryStatusPanel />
-            </div>
+            <TabsContent value="resources" className="flex-1 overflow-hidden p-4 flex flex-col gap-4">
+              <div className="flex-1 min-h-0">
+                <OrgResourcesWidget />
+              </div>
+              <div className="h-[32%] min-h-[160px]">
+                <ArmoryStatusPanel />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
 
-         </div>
-
-         {/* 3. Right Column (Status & Org Overview) */}
-         <div className="col-span-12 md:col-span-12 lg:col-span-3 row-span-12 md:row-span-12 flex flex-col gap-4 overflow-hidden">
-            
-            {/* High Authority Uplink */}
-            <div className="shrink-0">
-               <PioneerUplink />
-            </div>
-
-            {/* Critical Alerts & Status */}
-            <div className="shrink-0">
-               <StatusAlertsWidget />
-            </div>
-
-            {/* Org Status Monitor */}
-            <div className="flex-1 overflow-hidden min-h-0">
-               <OrgStatusWidget />
-            </div>
-
-            {/* Rank Progression */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-               <RankVisualizer currentRank={user?.rank || 'Vagrant'} />
-            </div>
-
-         </div>
-
+        {/* Aux / Quick actions */}
+        <div className="h-full grid grid-rows-[auto_1fr_auto] border border-zinc-800 bg-black/60 shadow-[0_0_20px_rgba(0,0,0,0.4)]">
+          <div className="px-3 py-2 border-b border-zinc-800 uppercase text-[11px] tracking-[0.2em] text-zinc-400">
+            Aux Ops
+          </div>
+          <div className="overflow-auto space-y-3 p-3">
+            <PioneerUplink />
+            <CommanderDashboard user={user} />
+            <OperatorDashboard user={user} />
+          </div>
+          <div className="border-t border-zinc-800 p-3 text-[11px] text-zinc-500 flex items-center justify-between bg-black/50">
+            <span>Uplink Stable</span>
+            <span className="text-burnt-orange">●</span>
+          </div>
+        </div>
       </main>
     </div>
   );
