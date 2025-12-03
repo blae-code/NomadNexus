@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,26 +25,69 @@ function EventDetail({ id }) {
   const [isEditOpen, setIsEditOpen] = React.useState(false);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    const fetchUser = async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setCurrentUser(data?.user || null);
+    };
+    fetchUser().catch(() => {});
   }, []);
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['event-detail', id],
     queryFn: async () => {
       if (!id) return null;
-      return base44.entities.Event.get(id);
+      if (!supabase) return null;
+      const { data, error } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
+      if (error) {
+        console.error('Error fetching event', error);
+        return null;
+      }
+      return data;
     },
     enabled: !!id
   });
 
   const { data: creator } = useQuery({
     queryKey: ['event-creator', event?.created_by],
-    queryFn: () => base44.entities.User.get(event.created_by),
+    queryFn: async () => {
+      if (!supabase || !event?.created_by) return null;
+      const { data, error } = await supabase.from('profiles').select('id, rsi_handle, email').eq('id', event.created_by).maybeSingle();
+      if (error) {
+        console.error('Error fetching creator', error);
+        return null;
+      }
+      return data;
+    },
     enabled: !!event?.created_by
   });
 
-  const { data: allUsers } = useQuery({ queryKey: ['event-users-detail'], queryFn: () => base44.entities.User.list(), initialData: [] });
-  const { data: allAssets } = useQuery({ queryKey: ['event-assets-detail'], queryFn: () => base44.entities.FleetAsset.list(), initialData: [] });
+  const { data: allUsers } = useQuery({
+    queryKey: ['event-users-detail'],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Error fetching users', error);
+        return [];
+      }
+      return data || [];
+    },
+    initialData: []
+  });
+  const { data: allAssets } = useQuery({
+    queryKey: ['event-assets-detail'],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('fleet_assets').select('*');
+      if (error) {
+        console.error('Error fetching assets', error);
+        return [];
+      }
+      return data || [];
+    },
+    initialData: []
+  });
 
   if (isLoading) {
     return <div className="min-h-screen bg-zinc-950 p-10 text-center text-zinc-500">Loading Intelligence...</div>;
@@ -240,12 +283,28 @@ export default function EventsPage() {
   const id = params.get('id');
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    const fetchUser = async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setCurrentUser(data?.user || null);
+    };
+    fetchUser().catch(() => {});
   }, []);
 
   const { data: events, isLoading } = useQuery({
     queryKey: ['events-list'],
-    queryFn: () => base44.entities.Event.list({ sort: { start_time: -1 } }),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('start_time', { ascending: true });
+      if (error) {
+        console.error('Error fetching events', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 

@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Rocket, User } from "lucide-react";
 import ObjectiveEditor from "@/components/missions/ObjectiveEditor";
@@ -34,13 +34,29 @@ export default function EventForm({ event, open, onOpenChange, onSuccess }) {
   // Fetch Assets for assignment
   const { data: assets } = useQuery({
     queryKey: ['event-assets'],
-    queryFn: () => base44.entities.FleetAsset.list(),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('fleet_assets').select('*');
+      if (error) {
+        console.error('Error fetching assets', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
   
   const { data: users } = useQuery({
     queryKey: ['event-users-assign'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Error fetching users', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 
@@ -77,11 +93,14 @@ export default function EventForm({ event, open, onOpenChange, onSuccess }) {
         start_time: new Date(data.start_time).toISOString(),
         objectives: objectives
       };
-      
+      if (!supabase) throw new Error('Supabase client not initialized');
+
       if (event?.id) {
-        return base44.entities.Event.update(event.id, payload);
+        const { error } = await supabase.from('events').update(payload).eq('id', event.id);
+        if (error) throw error;
       } else {
-        return base44.entities.Event.create(payload);
+        const { error } = await supabase.from('events').insert(payload);
+        if (error) throw error;
       }
     },
     onSuccess: () => {
