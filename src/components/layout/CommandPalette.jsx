@@ -25,6 +25,16 @@ export default function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
   const containerRef = useRef(null);
+  const [voiceHistory, setVoiceHistory] = useState([
+    'Riggsy, mark waypoint on Bonfire dock.',
+    'Riggsy, open campfire chat.',
+    'Riggsy, repeat last order.',
+  ]);
+  const suggestedIntents = [
+    'Open squad roster',
+    'Send ready check',
+    'Deploy Hammerhead wing',
+  ];
 
   // Command Actions Definition
   const commands = [
@@ -161,28 +171,53 @@ export default function CommandPalette() {
             />
 
             {/* Keyboard Badge */}
-            <div className="pr-3 flex items-center gap-2">
-               {!isOpen && (
-                 <div className="hidden md:flex items-center gap-1 px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px] text-zinc-500 font-mono">
-                   <Command className="w-3 h-3" />
-                   <span>K</span>
-                 </div>
-               )}
-               {isOpen && (
-                 <div className="flex gap-0.5">
-                    {[1,2,3].map(i => (
-                      <motion.div 
-                        key={i}
-                        animate={{ height: [4, 12, 4] }}
-                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
-                        className="w-0.5 bg-[#ea580c]"
-                      />
-                    ))}
-                 </div>
-               )}
+          <div className="pr-3 flex items-center gap-2">
+             {!isOpen && (
+               <div className="hidden md:flex items-center gap-1 px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-[9px] text-zinc-500 font-mono">
+                 <Command className="w-3 h-3" />
+                 <span>K</span>
+               </div>
+             )}
+             {isOpen && (
+               <div className="flex gap-0.5">
+                  {[1,2,3].map(i => (
+                    <motion.div
+                      key={i}
+                      animate={{ height: [4, 12, 4] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
+                      className="w-0.5 bg-[#ea580c]"
+                    />
+                  ))}
+               </div>
+             )}
+          </div>
+       </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-zinc-400">
+          <div className="border border-zinc-800 bg-zinc-950/60 p-2">
+            <div className="text-[9px] uppercase tracking-[0.2em] text-amber-300 mb-1">Recent PTT</div>
+            <div className="space-y-1">
+              {voiceHistory.map((phrase, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setVoiceHistory(prev => [phrase, ...prev.filter((_, i) => i !== idx)].slice(0, 5))}
+                  className="w-full text-left text-[10px] px-2 py-1 bg-zinc-900/60 border border-zinc-800 hover:border-[#ea580c]/60 hover:text-[#ea580c]"
+                >
+                  {phrase}
+                </button>
+              ))}
             </div>
-         </div>
-      </div>
+          </div>
+          <div className="border border-zinc-800 bg-zinc-950/60 p-2">
+            <div className="text-[9px] uppercase tracking-[0.2em] text-amber-300 mb-1">Suggested voice intents</div>
+            <div className="flex flex-wrap gap-1">
+              {suggestedIntents.map((intent) => (
+                <span key={intent} className="px-2 py-1 border border-zinc-800 bg-black/40 text-[10px]">{intent}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+     </div>
 
       {/* Dropdown Results */}
       <AnimatePresence>
@@ -202,9 +237,9 @@ export default function CommandPalette() {
                  <div className="p-8 text-center text-zinc-600 font-mono text-xs">
                    <div className="mb-2">NO MATCHING PROTOCOLS FOUND</div>
                    <div className="text-[10px] opacity-50">TRY A DIFFERENT QUERY</div>
-                 </div>
-               ) : (
-                 filteredCommands.map((group, gIdx) => (
+                </div>
+              ) : (
+                filteredCommands.map((group, gIdx) => (
                    <div key={gIdx} className="mb-2 last:mb-0">
                      <div className="px-2 py-1.5 text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] font-mono">
                        {group.category}
