@@ -9,7 +9,7 @@ import PioneerUplink from "@/components/dashboard/PioneerUplink";
 import RankVisualizer from "@/components/dashboard/RankVisualizer";
 import CommanderDashboard from "@/components/dashboard/CommanderDashboard";
 import OperatorDashboard from "@/components/dashboard/OperatorDashboard";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { getUserRankValue } from "@/components/permissions";
 import { LayoutDashboard, Map, Radio } from "lucide-react";
@@ -17,7 +17,22 @@ import { LayoutDashboard, Map, Radio } from "lucide-react";
 export default function NomadOpsDashboard() {
   const { data: user } = useQuery({
      queryKey: ['dashboard-user'],
-     queryFn: () => base44.auth.me().catch(() => null)
+     queryFn: async () => {
+        if (!supabase) return null;
+        const { data } = await supabase.auth.getUser();
+        const authUser = data?.user;
+        if (!authUser) return null;
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        if (error) {
+          console.error('Dashboard user fetch failed', error);
+          return authUser;
+        }
+        return profile || authUser;
+     }
   });
 
   const [viewMode, setViewMode] = useState('standard');

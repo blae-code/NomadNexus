@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowUpRight, ArrowDownLeft, Calendar } from "lucide-react";
@@ -12,17 +12,32 @@ export default function TransactionHistory({ cofferId, eventId, limit = 20 }) {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions', cofferId, eventId],
-    queryFn: () => base44.entities.CofferTransaction.list({ 
-      filter, 
-      sort: { transaction_date: -1 },
-      limit 
-    }),
+    queryFn: async () => {
+      if (!supabase) return [];
+      let query = supabase.from('coffer_transactions').select('*').order('transaction_date', { ascending: false }).limit(limit);
+      if (filter.coffer_id) query = query.eq('coffer_id', filter.coffer_id);
+      if (filter.event_id) query = query.eq('event_id', filter.event_id);
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching transactions', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 
   const { data: users } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Error fetching users', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 

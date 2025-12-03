@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { User, Shield, Tag, Save } from "lucide-react";
+import { User, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function ProfilePage() {
@@ -17,12 +17,26 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        setValue("callsign", currentUser.callsign || "");
-        setValue("rsi_handle", currentUser.rsi_handle || "");
-        setValue("full_name", currentUser.full_name || "");
-        setValue("rank", currentUser.rank || "Vagrant");
+        if (!supabase) return;
+        const { data } = await supabase.auth.getUser();
+        const authUser = data?.user;
+        if (!authUser) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        if (error) throw error;
+        const profileData = profile || {};
+        setUser(profileData);
+        setValue("callsign", profileData.callsign || "");
+        setValue("rsi_handle", profileData.rsi_handle || "");
+        setValue("full_name", profileData.full_name || authUser.email || "");
+        setValue("rank", profileData.rank || "Vagrant");
       } catch (error) {
         console.error("Failed to load user", error);
       } finally {
@@ -34,16 +48,23 @@ export default function ProfilePage() {
 
   const onSubmit = async (data) => {
     try {
-      await base44.auth.updateMe({
+      if (!supabase || !user?.id) throw new Error("No user session");
+      const updates = {
         callsign: data.callsign,
         rsi_handle: data.rsi_handle,
-        rank: data.rank // Saving rank from the override
-      });
-      
+        rank: data.rank,
+      };
+      const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+      if (error) throw error;
       toast.success("Profile updated successfully");
-      // Reload user to reflect changes
-      const updatedUser = await base44.auth.me();
-      setUser(updatedUser);
+
+      const { data: refreshed, error: refreshError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (refreshError) throw refreshError;
+      setUser(refreshed || user);
     } catch (error) {
       console.error("Update failed", error);
       toast.error("Failed to update profile");

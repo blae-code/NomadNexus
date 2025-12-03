@@ -1,7 +1,7 @@
 import React from "react";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { 
   LayoutGrid, 
   Radio, 
@@ -26,11 +26,17 @@ export default function ActivityBar() {
   const { data: hasRescue } = useQuery({
     queryKey: ['nav-rescue-check'],
     queryFn: async () => {
-      const distress = await base44.entities.PlayerStatus.list({
-        filter: { status: 'DISTRESS' },
-        limit: 1
-      });
-      return distress.length > 0;
+      if (!supabase) return false;
+      const { data, error } = await supabase
+        .from('player_status')
+        .select('id')
+        .eq('status', 'DISTRESS')
+        .limit(1);
+      if (error) {
+        console.error('Rescue check failed', error);
+        return false;
+      }
+      return (data?.length || 0) > 0;
     },
     refetchInterval: 5000
   });
@@ -41,14 +47,18 @@ export default function ActivityBar() {
     queryFn: async () => {
       const now = new Date();
       const twelveHoursLater = new Date(now.getTime() + 12 * 60 * 60 * 1000);
-      
-      const events = await base44.entities.Event.list({
-        filter: { status: 'scheduled' },
-        sort: { start_time: 1 },
-        limit: 5
-      });
-      
-      return events.some(e => {
+      if (!supabase) return false;
+      const { data, error } = await supabase
+        .from('events')
+        .select('start_time, status')
+        .eq('status', 'scheduled')
+        .order('start_time', { ascending: true })
+        .limit(5);
+      if (error) {
+        console.error('Event check failed', error);
+        return false;
+      }
+      return (data || []).some(e => {
         const start = new Date(e.start_time);
         return start > now && start < twelveHoursLater;
       });
@@ -60,14 +70,20 @@ export default function ActivityBar() {
   const { data: isCommsConnected } = useQuery({
     queryKey: ['nav-comms-check'],
     queryFn: async () => {
-      const user = await base44.auth.me().catch(() => null);
+      if (!supabase) return false;
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
       if (!user) return false;
-      const status = await base44.entities.PlayerStatus.list({
-        user_id: user.id,
-        limit: 1
-      });
-      // Simple check: if they have a status record that isn't OFFLINE
-      return status.length > 0 && status[0].status !== 'OFFLINE';
+      const { data, error } = await supabase
+        .from('player_status')
+        .select('status')
+        .eq('user_id', user.id)
+        .limit(1);
+      if (error) {
+        console.error('Comms check failed', error);
+        return false;
+      }
+      return (data?.length || 0) > 0 && data[0].status !== 'OFFLINE';
     }
   });
 

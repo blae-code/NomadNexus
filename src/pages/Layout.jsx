@@ -7,7 +7,7 @@ import { getRankColorClass } from "@/components/utils/rankUtils";
 import { cn } from "@/lib/utils";
 import ActivityBar from "@/components/layout/ActivityBar";
 import NetworkStatusIndicator from "@/components/layout/NetworkStatusIndicator";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 
 export default function Layout({ children, currentPageName }) {
   const [time, setTime] = useState(new Date());
@@ -15,7 +15,26 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
-    base44.auth.me().then(setUser).catch(() => {});
+    const fetchUser = async () => {
+      if (!supabase) return;
+      try {
+        const { data } = await supabase.auth.getUser();
+        const sessionUser = data?.user;
+        if (!sessionUser) {
+          setUser(null);
+          return;
+        }
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', sessionUser.id)
+          .maybeSingle();
+        setUser(profile || sessionUser);
+      } catch (err) {
+        console.error('Failed to fetch user', err);
+      }
+    };
+    fetchUser();
     return () => clearInterval(timer);
   }, []);
 

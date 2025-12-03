@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,13 +15,18 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     try {
-      const data = await base44.auth.login(callsign, password);
-      if (data.token) {
-        navigate('/');
-      } else {
+      if (!supabase) throw new Error('Supabase client not configured');
+      const { error: signInError, data } = await supabase.auth.signInWithPassword({
+        email: callsign,
+        password,
+      });
+      if (signInError || !data?.session) {
         setError('Login failed');
+        return;
       }
+      navigate('/');
     } catch (err) {
+      console.error('Login error', err);
       setError('Login failed');
     }
   };

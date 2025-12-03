@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,19 +15,43 @@ export default function TreasuryPage() {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-     base44.auth.me().then(setCurrentUser).catch(() => {});
+     const fetchUser = async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setCurrentUser(data?.user || null);
+     };
+     fetchUser().catch(() => {});
   }, []);
   
   const { data: coffers, isLoading } = useQuery({
     queryKey: ['coffers'],
-    queryFn: () => base44.entities.Coffer.list(),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('coffers').select('*');
+      if (error) {
+        console.error('Error fetching coffers', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 
   // Calculate balance for each coffer on the fly
   const { data: allTransactions } = useQuery({
     queryKey: ['transactions-all'],
-    queryFn: () => base44.entities.CofferTransaction.list({ limit: 1000 }), // simplified for v0.1
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('coffer_transactions')
+        .select('*')
+        .limit(1000);
+      if (error) {
+        console.error('Error fetching transactions', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 

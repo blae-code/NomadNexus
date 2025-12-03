@@ -1,13 +1,28 @@
 import React from "react";
 import RankVisualizer from "@/components/dashboard/RankVisualizer";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { Shield } from "lucide-react";
 
 export default function RanksPage() {
    const { data: user } = useQuery({
       queryKey: ['ranks-user'],
-      queryFn: () => base44.auth.me().catch(() => null)
+      queryFn: async () => {
+         if (!supabase) return null;
+         const { data } = await supabase.auth.getUser();
+         const authUser = data?.user;
+         if (!authUser) return null;
+         const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+         if (error) {
+            console.error('Rank user fetch failed', error);
+            return null;
+         }
+         return profile || authUser;
+      }
    });
 
    return (

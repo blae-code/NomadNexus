@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,12 @@ export default function TransactionForm({ cofferId, eventId, triggerButton }) {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    const fetchUser = async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      setCurrentUser(data?.user || null);
+    };
+    fetchUser().catch(() => {});
   }, []);
 
   const { register, handleSubmit, reset, setValue } = useForm({
@@ -31,7 +36,19 @@ export default function TransactionForm({ cofferId, eventId, triggerButton }) {
   // Fetch recent events for linkage if not provided
   const { data: events } = useQuery({
     queryKey: ['recent-events'],
-    queryFn: () => base44.entities.Event.list({ sort: { start_time: -1 }, limit: 10 }),
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('start_time', { ascending: false })
+        .limit(10);
+      if (error) {
+        console.error('Error fetching events', error);
+        return [];
+      }
+      return data || [];
+    },
     initialData: []
   });
 
@@ -40,14 +57,16 @@ export default function TransactionForm({ cofferId, eventId, triggerButton }) {
       const amount = parseFloat(data.amount);
       const finalAmount = type === 'deposit' ? Math.abs(amount) : -Math.abs(amount);
       
-      return base44.entities.CofferTransaction.create({
-        coffer_id: cofferId,
-        user_id: currentUser.id,
-        event_id: data.event_id === "none" ? null : data.event_id,
-        amount: finalAmount,
-        description: data.description,
-        transaction_date: new Date().toISOString()
-      });
+      return supabase
+        ?.from('coffer_transactions')
+        .insert({
+          coffer_id: cofferId,
+          user_id: currentUser.id,
+          event_id: data.event_id === "none" ? null : data.event_id,
+          amount: finalAmount,
+          description: data.description,
+          transaction_date: new Date().toISOString()
+        });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['transactions']);
