@@ -1,5 +1,4 @@
 import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { AlertTriangle, Wifi, WifiOff, Coins, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -90,70 +89,55 @@ export default function StatusAlertsWidget() {
   });
 
   return (
-    <div className="flex flex-col gap-2 h-full">
-      
-      {/* Rescue Alert - High Priority */}
+    <div className="flex flex-col gap-3 h-full border border-[var(--burnt-orange)] bg-[var(--gunmetal)] p-3">
+      <div className="label-plate px-2 py-1 flex items-center gap-2 text-[10px]">Status Alerts</div>
+
       {hasRescueRequest && (
-        <a href={createPageUrl('CommsConsole?view=rescue')} className="block">
-          <Card className="bg-red-950/30 border-2 border-red-500 animate-pulse cursor-pointer hover:bg-red-950/50 transition-colors">
-            <CardContent className="p-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-red-600 text-white p-1.5 rounded-sm animate-bounce">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-red-500 font-black uppercase tracking-widest text-xs">CRITICAL ALERT</div>
-                  <div className="text-white font-bold text-sm tracking-wide">!! ACTIVE RESCUE REQUEST !!</div>
-                </div>
+        <a href={createPageUrl("CommsConsole?view=rescue")} className="block">
+          <div className="data-cell px-4 py-3 border-[var(--burnt-orange)] bg-[#210202] animate-pulse flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-[#8a0303] text-white p-2 border border-black">
+                <AlertTriangle className="w-5 h-5" />
               </div>
-              <ExternalLink className="w-4 h-4 text-red-400" />
-            </CardContent>
-          </Card>
+              <div>
+                <div className="text-[#ffbf00] font-black uppercase tracking-[0.24em] text-xs">Critical Alert</div>
+                <div className="text-white font-black text-sm tracking-wider">Active Rescue Request</div>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-[#ffbf00]" />
+          </div>
         </a>
       )}
 
-      {/* Status Grid */}
-      <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
-         <CardContent className="p-4 space-y-4">
-            
-            {/* Comms Status */}
-            <div className="flex items-center justify-between">
-               <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-full bg-zinc-950 border", isOnline ? "border-emerald-500/50 text-emerald-500" : "border-red-900/50 text-red-900")}>
-                     {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-                  </div>
-                  <div>
-                     <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Comms Link</div>
-                     <div className={cn("text-xs font-mono font-bold", isOnline ? "text-emerald-400" : "text-red-700")}>
-                        {commsText}
-                     </div>
-                  </div>
-               </div>
-               <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500 animate-pulse" : "bg-red-900")} />
+      <div className="flex-1 flex flex-col gap-3">
+        <div className="data-cell px-4 py-3 flex items-center justify-between border border-[var(--burnt-orange)]">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-2 border bg-black", isOnline ? "border-[#00ff41] text-[#00ff41]" : "border-[#8a0303] text-[#8a0303]")}>
+              {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
             </div>
+            <div>
+              <div className="label-plate px-1 py-0.5 text-[9px]">Comms Link</div>
+              <div className={cn("text-sm font-black font-mono", isOnline ? "text-[#00ff41]" : "text-[#8a0303]")}>{commsText}</div>
+            </div>
+          </div>
+          <div className={cn("w-3 h-3 border", isOnline ? "border-[#00ff41] bg-[#00ff41] animate-pulse" : "border-[#8a0303] bg-[#8a0303]")} />
+        </div>
 
-            {/* AUEC Warning */}
-            {cofferWarning !== null && cofferWarning !== undefined && (
-               <div className="flex items-center justify-between pt-4 border-t border-zinc-800/50">
-                  <div className="flex items-center gap-3">
-                     <div className="p-2 rounded-full bg-amber-950/30 border border-amber-500/50 text-amber-500">
-                        <Coins className="w-4 h-4" />
-                     </div>
-                     <div>
-                        <div className="text-[10px] text-amber-600 uppercase tracking-wider font-bold">Finance Alert</div>
-                        <div className="text-xs font-mono font-bold text-amber-500">
-                           ORG FUNDS CRITICAL
-                        </div>
-                     </div>
-                  </div>
-                  <div className="text-[10px] text-amber-700 font-mono">
-                     {cofferWarning.toLocaleString()} aUEC
-                  </div>
-               </div>
-            )}
-
-         </CardContent>
-      </Card>
+        {cofferWarning !== null && cofferWarning !== undefined && (
+          <div className="data-cell px-4 py-3 flex items-center justify-between border border-[var(--burnt-orange)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2 border border-[#ffbf00] bg-black text-[#ffbf00]">
+                <Coins className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="label-plate px-1 py-0.5 text-[9px]">Finance Alert</div>
+                <div className="text-sm font-black text-[#ffbf00]">ORG FUNDS CRITICAL</div>
+              </div>
+            </div>
+            <div className="text-sm font-black text-[#ffbf00]">{cofferWarning.toLocaleString()} aUEC</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
