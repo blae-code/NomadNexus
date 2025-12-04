@@ -3,6 +3,8 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority";
 import { PanelLeft } from "lucide-react"
 
+import { useHotkeyConfig, hotkeyHelpers } from "@/hooks/useHotkeyConfig"
+
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -22,7 +24,6 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
-const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 const SidebarContext = React.createContext(null)
 
@@ -49,6 +50,7 @@ const SidebarProvider = React.forwardRef((
 ) => {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const { combo: sidebarHotkey, enabled: sidebarHotkeyEnabled } = useHotkeyConfig("sidebarToggle", { defaultCombo: "ctrl+b", defaultEnabled: false })
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -73,13 +75,12 @@ const SidebarProvider = React.forwardRef((
       : setOpen((open) => !open);
   }, [isMobile, setOpen, setOpenMobile])
 
-  // Adds a keyboard shortcut to toggle the sidebar.
+  // Adds a user-configurable keyboard shortcut to toggle the sidebar (disabled by default).
   React.useEffect(() => {
+    if (!sidebarHotkeyEnabled || !sidebarHotkey) return undefined
+
     const handleKeyDown = (event) => {
-      if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
-      ) {
+      if (hotkeyHelpers.matchesEvent(event, sidebarHotkey)) {
         event.preventDefault()
         toggleSidebar()
       }
@@ -87,7 +88,7 @@ const SidebarProvider = React.forwardRef((
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar])
+  }, [sidebarHotkeyEnabled, sidebarHotkey, toggleSidebar])
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.

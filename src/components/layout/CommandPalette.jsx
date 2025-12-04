@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useHotkeyConfig } from "@/hooks/useHotkeyConfig";
 
 export default function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +32,21 @@ export default function CommandPalette() {
   const chipRef = useRef(null);
   const containerRef = useRef(null);
   const [signalBars, setSignalBars] = useState([6, 12, 9, 14, 10]);
+
+  const {
+    combo: commandHotkey,
+    enabled: commandHotkeyEnabled,
+    setCombo: setCommandHotkey,
+    setEnabled: setCommandHotkeyEnabled,
+    matchesEvent: commandHotkeyMatches,
+  } = useHotkeyConfig("commandPalette", { defaultCombo: "ctrl+k", defaultEnabled: false });
+
+  const {
+    combo: sidebarHotkey,
+    enabled: sidebarHotkeyEnabled,
+    setCombo: setSidebarHotkey,
+    setEnabled: setSidebarHotkeyEnabled,
+  } = useHotkeyConfig("sidebarToggle", { defaultCombo: "ctrl+b", defaultEnabled: false });
 
   const baseResults = useMemo(() => ([
     { 
@@ -112,14 +128,17 @@ export default function CommandPalette() {
   const filteredCommands = searchResults.length ? searchResults : baseResults;
   const flatItems = filteredCommands.flatMap(g => g.items);
 
-  // Keyboard Shortcuts
+  // Keyboard Shortcuts (disabled by default, user-configured)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if (commandHotkeyEnabled && commandHotkey && commandHotkeyMatches(e)) {
         e.preventDefault();
         setIsOpen(true);
         inputRef.current?.focus();
-      } else if (e.key === "Escape") {
+        return;
+      }
+
+      if (e.key === "Escape") {
         setIsOpen(false);
         inputRef.current?.blur();
       } else if (isOpen) {
@@ -144,7 +163,7 @@ export default function CommandPalette() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, flatItems, selectedIndex]);
+  }, [commandHotkeyEnabled, commandHotkey, commandHotkeyMatches, isOpen, flatItems, selectedIndex]);
 
   // Click outside to close
   useEffect(() => {
@@ -310,14 +329,65 @@ export default function CommandPalette() {
                 />
               ))}
             </div>
-            {!isOpen && !isFocused && (
+            {!isOpen && !isFocused && commandHotkeyEnabled && commandHotkey && (
               <div className="hidden md:flex items-center gap-1 px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-[9px] text-zinc-500 font-mono uppercase tracking-widest">
                 <Command className="w-3 h-3" />
-                <span>K</span>
+                <span>{commandHotkey.toUpperCase()}</span>
               </div>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Hotkey configuration */}
+      <div className="mt-2 border border-[var(--burnt-orange)] bg-black/80 p-3 text-[10px] font-mono uppercase tracking-[0.15em] text-[var(--burnt-orange)] flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span>HOTKEYS DISABLED BY DEFAULT</span>
+          <span className="text-[9px] text-amber-400">Users can enable and set custom binds</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="flex items-center justify-between text-[9px] text-zinc-300">
+              <span>Command Palette Bind</span>
+              <span className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={commandHotkeyEnabled}
+                  onChange={(e) => setCommandHotkeyEnabled(e.target.checked)}
+                  className="accent-[var(--burnt-orange)] w-4 h-4 border border-[var(--burnt-orange)] bg-black rounded-none"
+                />
+                <span className="text-[8px]">Enable</span>
+              </span>
+            </label>
+            <input
+              value={commandHotkey}
+              onChange={(e) => setCommandHotkey(e.target.value)}
+              placeholder="ctrl+k"
+              className="h-8 bg-zinc-950 border border-[var(--burnt-orange)] text-[var(--burnt-orange)] px-2 font-semibold tracking-widest uppercase rounded-none placeholder:text-zinc-600"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="flex items-center justify-between text-[9px] text-zinc-300">
+              <span>Sidebar Toggle Bind</span>
+              <span className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={sidebarHotkeyEnabled}
+                  onChange={(e) => setSidebarHotkeyEnabled(e.target.checked)}
+                  className="accent-[var(--burnt-orange)] w-4 h-4 border border-[var(--burnt-orange)] bg-black rounded-none"
+                />
+                <span className="text-[8px]">Enable</span>
+              </span>
+            </label>
+            <input
+              value={sidebarHotkey}
+              onChange={(e) => setSidebarHotkey(e.target.value)}
+              placeholder="ctrl+b"
+              className="h-8 bg-zinc-950 border border-[var(--burnt-orange)] text-[var(--burnt-orange)] px-2 font-semibold tracking-widest uppercase rounded-none placeholder:text-zinc-600"
+            />
+          </div>
+        </div>
+        <div className="text-[8px] text-zinc-500">Use modifier notation like "ctrl+b", "cmd+shift+p". Settings persist locally.</div>
       </div>
 
       {/* Dropdown Results */}
