@@ -13,7 +13,6 @@ import { TerminalCard, SignalStrength, PermissionBadge, NetTypeIcon } from "@/co
 import StatusChip from "@/components/status/StatusChip";
 import { getRankColorClass } from "@/components/utils/rankUtils";
 import AudioVisualizer from "@/components/comms/AudioVisualizer";
-import CommsControlPanel from "@/components/comms/CommsControlPanel";
 import RosterItem from './RosterItem';
 import { useLiveKit, AUDIO_STATE } from '@/hooks/useLiveKit';
 
@@ -58,8 +57,8 @@ function CommsLog({ eventId }) {
   );
 }
 
-function NetRoster({ net, eventId }) {
-  const { audioState } = useLiveKit();
+function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId }) {
+  const { audioState, enforceParticipantMute } = useLiveKit();
   const { data: allUsers } = useQuery({
     queryKey: ['users'],
     queryFn: () => supabaseApi.entities.User.list(),
@@ -116,6 +115,16 @@ function NetRoster({ net, eventId }) {
     });
   }, [net, allUsers, squadMembers, statuses]);
 
+  useEffect(() => {
+    statuses.forEach((s) => {
+      if (['DOWN', 'UNCONSCIOUS'].includes(s.status)) {
+        enforceParticipantMute(s.user_id, true);
+      } else {
+        enforceParticipantMute(s.user_id, false);
+      }
+    });
+  }, [statuses, enforceParticipantMute]);
+
   return (
     <div className="space-y-3">
        <div className="flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-wider pb-2 border-b border-zinc-800">
@@ -133,25 +142,46 @@ function NetRoster({ net, eventId }) {
              const isCurrentUser = participant.id === myId;
              const isMuted = isCurrentUser && audioState === AUDIO_STATE.CONNECTED_MUTED;
              const isPtt = isCurrentUser && audioState === AUDIO_STATE.CONNECTED_OPEN; // Simplified for now
-             const isSpeaking = (isCurrentUser && audioState === AUDIO_STATE.CONNECTED_OPEN) || (!isCurrentUser && Math.random() > 0.95);
+             const isPriority = prioritySpeakerId && prioritySpeakerId === participant.id;
+             const isSpeaking =
+               isPriority ||
+               (isCurrentUser && audioState === AUDIO_STATE.CONNECTED_OPEN) ||
+               (!isCurrentUser && Math.random() > 0.95);
 
              return (
-              <RosterItem 
+              <RosterItem
                 key={participant.id}
                 participant={participant}
                 isSpeaking={isSpeaking}
                 isMuted={isMuted}
                 isPtt={isPtt}
+                isWhisperTarget={whisperTargetId === participant.id}
+                onHail={() => onHail?.(participant)}
               />
            )})}
-         </div>
-       )}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function ActiveNetPanel({ net, user, eventId }) {
-  const { audioState, connectionState, connect, disconnect, room, lastMuteAll, muteAcked, publishAck, setRole, roleProfile } = useLiveKit();
+  const {
+    audioState,
+    connectionState,
+    connect,
+    disconnect,
+    lastMuteAll,
+    muteAcked,
+    publishAck,
+    setRole,
+    roleProfile,
+    publishWhisper,
+    stopWhisper,
+    prioritySpeaker,
+    broadcastMode,
+    setBroadcast,
+  } = useLiveKit();
   const [whisperTarget, setWhisperTarget] = React.useState(null);
 
   useEffect(() => {
@@ -162,6 +192,7 @@ export default function ActiveNetPanel({ net, user, eventId }) {
       roomName: net.code,
       participantName: user.callsign || user.rsi_handle || user.full_name || 'Unknown',
       role,
+      userId: user.id,
     });
     return () => disconnect();
   }, [net?.code, user?.id]);
@@ -169,8 +200,10 @@ export default function ActiveNetPanel({ net, user, eventId }) {
   const handleWhisper = (targetUser) => {
      if (whisperTarget?.id === targetUser.id) {
         setWhisperTarget(null);
+        stopWhisper();
      } else {
         setWhisperTarget(targetUser);
+        publishWhisper(targetUser.id);
      }
   };
   
@@ -256,27 +289,33 @@ export default function ActiveNetPanel({ net, user, eventId }) {
                  </Badge>
               )}
               <PermissionBadge canTx={canTx} minRankTx={net.min_rank_to_tx} minRankRx={net.min_rank_to_rx} />
+              <Button
+                size="sm"
+                variant={broadcastMode ? "destructive" : "outline"}
+                className="text-[11px] uppercase tracking-widest"
+                onClick={() => setBroadcast(!broadcastMode)}
+              >
+                {broadcastMode ? "Broadcast Active" : "Broadcast Mode"}
+              </Button>
                <div className="text-[10px] text-zinc-600 font-mono tracking-widest">ID: {net.id.slice(0,8).toUpperCase()}</div>
             </div>
           </div>
         
-           <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-zinc-900/50 p-3 rounded-sm border border-zinc-800/50">
-                 <div className="text-[9px] text-zinc-500 uppercase mb-1 tracking-widest">Squad Assignment</div>
-                 <div className="text-zinc-200 font-bold text-sm font-mono">
-                    {net.linked_squad_id ? "DEDICATED LINK" : "GLOBAL / OPEN"}
-                 </div>
-              </div>
-              <div className="bg-zinc-900/50 p-3 rounded-sm border border-zinc-800/50 flex justify-between items-center">
-                 <div>
-                   <div className="text-[9px] text-zinc-500 uppercase mb-1 tracking-widest">Carrier Signal</div>
-                   <div className="text-zinc-200 font-bold text-sm font-mono">OPTIMAL</div>
-                 </div>
-                 <SignalStrength strength={4} className="h-6 gap-1" />
-              </div>
-           </div>
-
-import CommsControlPanel from "@/components/comms/CommsControlPanel";
+          <div className="grid grid-cols-2 gap-4 mb-6">
+             <div className="bg-zinc-900/50 p-3 rounded-sm border border-zinc-800/50">
+                <div className="text-[9px] text-zinc-500 uppercase mb-1 tracking-widest">Squad Assignment</div>
+                <div className="text-zinc-200 font-bold text-sm font-mono">
+                   {net.linked_squad_id ? "DEDICATED LINK" : "GLOBAL / OPEN"}
+                </div>
+             </div>
+             <div className="bg-zinc-900/50 p-3 rounded-sm border border-zinc-800/50 flex justify-between items-center">
+                <div>
+                  <div className="text-[9px] text-zinc-500 uppercase mb-1 tracking-widest">Carrier Signal</div>
+                  <div className="text-zinc-200 font-bold text-sm font-mono">OPTIMAL</div>
+                </div>
+                <SignalStrength strength={4} className="h-6 gap-1" />
+             </div>
+          </div>
 ...
            {isTransmitting && <AudioVisualizer />}
 
@@ -294,9 +333,12 @@ import CommsControlPanel from "@/components/comms/CommsControlPanel";
       {/* Roster & Logs */}
       <TerminalCard className="flex-1 flex flex-col overflow-hidden">
          <ScrollArea className="flex-1 p-4">
-            <NetRoster 
-              net={net} 
-              eventId={eventId} 
+            <NetRoster
+              net={net}
+              eventId={eventId}
+              prioritySpeakerId={prioritySpeaker?.participantId}
+              whisperTargetId={whisperTarget?.id}
+              onHail={handleWhisper}
             />
             <CommsLog eventId={eventId} />
          </ScrollArea>

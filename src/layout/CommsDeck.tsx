@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { MessageSquare, Radio, Signal, Waveform } from "lucide-react";
 import { NexusBadge, NexusButton, NexusCard } from "../components/ui/SciFiComponents";
+import CommsMixer from "../components/comms/CommsMixer";
 
 type DeckTab = "comms" | "intel" | "audio";
 
@@ -100,20 +101,12 @@ export const CommsDeck = ({ isOpen }: CommsDeckProps) => {
           )}
 
           {activeTab === "audio" && (
-            <div className="flex h-full flex-col justify-center gap-3 border border-slate-800 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Audio Spectrum</div>
-              <div className="flex h-24 items-end gap-2">
-                {[...Array(18)].map((_, index) => (
-                  <motion.span
-                    key={index}
-                    className="w-3 flex-1 bg-burnt-orange"
-                    animate={{
-                      height: ["20%", `${60 + (index % 5) * 8}%`, "35%"],
-                    }}
-                    transition={{ repeat: Infinity, repeatType: "mirror", duration: 1.8 + index * 0.05 }}
-                  />
-                ))}
+            <div className="flex h-full flex-col gap-4 border border-slate-800 p-4">
+              <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-slate-400">
+                <span>Audio Spectrum</span>
+                <span className="text-slate-500">Live Mixer</span>
               </div>
+              <CommsMixer />
             </div>
           )}
         </div>

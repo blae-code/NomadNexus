@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Room, RoomEvent, Track } from 'livekit-client';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Room, RoomEvent, Track, createLocalAudioTrack } from 'livekit-client';
 import AudioProcessor from '../api/AudioProcessor';
 import SpatialMixer from '../api/SpatialMixer';
 import TacticalTransceiver from '../api/TacticalTransceiver';
@@ -21,6 +21,15 @@ export const AUDIO_STATE = {
 };
 
 const LiveKitContext = createContext();
+
+const isCommanderRank = (rank) => {
+  if (!rank) return false;
+  const upper = rank.toUpperCase();
+  const ladder = ['CADET', 'ENSIGN', 'LIEUTENANT', 'COMMANDER', 'CAPTAIN', 'ADMIRAL'];
+  const idx = ladder.indexOf(upper);
+  const commanderIndex = ladder.indexOf('COMMANDER');
+  return idx >= commanderIndex || upper.includes('COMMAND');
+};
 
 const fetchToken = async ({ roomName, participantName }) => {
   const res = await fetch('/functions/generateLiveKitToken', {
@@ -54,9 +63,37 @@ export const LiveKitProvider = ({ children }) => {
   const [roleProfile, setRoleProfile] = useState(null);
   const lastMetadataRef = useRef(null);
   const pioneerHot = useRef(false);
+  const [remoteAudioTracks, setRemoteAudioTracks] = useState({});
+  const [soloTrack, setSoloTrack] = useState(null);
+  const [prioritySpeaker, setPrioritySpeaker] = useState(null);
+  const whisperTrackRef = useRef(null);
+  const [devices, setDevices] = useState({ microphones: [], speakers: [] });
+  const [devicePreferences, setDevicePreferences] = useState({
+    microphoneId: null,
+    speakerId: null,
+    noiseSuppression: true,
+    echoCancellation: true,
+    highPassFilter: false,
+  });
+  const [broadcastMode, setBroadcastMode] = useState(false);
+  const [currentWhisperTarget, setCurrentWhisperTarget] = useState(null);
 
   useEffect(() => {
     shipVoiceRef.current = new ShipVoice();
+  }, []);
+
+  useEffect(() => {
+    const loadDevices = async () => {
+      try {
+        const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+        const microphones = mediaDevices.filter((d) => d.kind === 'audioinput');
+        const speakers = mediaDevices.filter((d) => d.kind === 'audiooutput');
+        setDevices({ microphones, speakers });
+      } catch (err) {
+        console.warn('Device enumeration failed', err);
+      }
+    };
+    loadDevices();
   }, []);
 
   useEffect(() => {
@@ -68,7 +105,59 @@ export const LiveKitProvider = ({ children }) => {
     };
   }, []);
 
-  const connect = async ({ roomName, participantName, listenerPosition, role }) => {
+  useEffect(() => {
+    Object.keys(remoteAudioTracks).forEach((sid) => applyMixForTrack(sid));
+  }, [soloTrack, prioritySpeaker, remoteAudioTracks]);
+
+  const applyMixForTrack = (trackSid, override = {}) => {
+    const trackInfo = remoteAudioTracks[trackSid];
+    if (!trackInfo) return;
+    const soloActive = soloTrack && soloTrack !== trackSid;
+    const effective = {
+      pan: override.pan ?? trackInfo.pan ?? 0,
+      volume: override.volume ?? trackInfo.volume ?? 1,
+      muted: override.muted ?? trackInfo.muted ?? false,
+    };
+    const isDucked = prioritySpeaker && prioritySpeaker.participantId !== trackInfo.participantId;
+    let gain = effective.muted ? 0 : effective.volume;
+    if (soloActive) gain = 0;
+    if (isDucked) gain *= 0.5;
+    AudioProcessor.getInstance().updatePanAndGain?.(trackSid, effective.pan, gain);
+  };
+
+  const upsertRemoteTrack = (track, publication, participant, initial = {}) => {
+    const metadata = participant.metadata ? JSON.parse(participant.metadata) : {};
+    setRemoteAudioTracks((prev) => {
+      const next = {
+        ...prev,
+        [track.sid]: {
+          sid: track.sid,
+          participantId: participant.identity,
+          userId: metadata.userId,
+          participantName: participant.name || participant.identity,
+          publicationName: publication?.name || track.sid,
+          role: metadata.role,
+          rank: metadata.rank || metadata.role,
+          pan: initial.pan ?? 0,
+          volume: initial.volume ?? 1,
+          muted: initial.muted ?? false,
+        },
+      };
+      return next;
+    });
+    applyMixForTrack(track.sid, initial);
+  };
+
+  const removeRemoteTrack = (sid) => {
+    setRemoteAudioTracks((prev) => {
+      const next = { ...prev };
+      delete next[sid];
+      return next;
+    });
+    AudioProcessor.getInstance().stopProcessing?.(sid);
+  };
+
+  const connect = async ({ roomName, participantName, listenerPosition, role, userId }) => {
     if (!roomName) return;
     setConnectionState('connecting');
     setError(null);
@@ -100,14 +189,52 @@ export const LiveKitProvider = ({ children }) => {
           if (listenerPosition) {
             try {
               const mix = spatialMixer.current.calculateMix(
-                { x: meta.x || 0, y: meta.y || 0 },
-                listenerPosition
+                { x: meta.x || 0, y: meta.y || 0, squadId: meta.squadId },
+                listenerPosition,
+                meta.relativeSquadPosition
               );
               AudioProcessor.getInstance().updatePanAndGain?.(track.sid, mix.pan, mix.gain);
+              upsertRemoteTrack(track, publication, participant, { pan: mix.pan, volume: mix.gain });
             } catch (err) {
               console.warn('Metadata parse failed for spatial mix', err);
+              upsertRemoteTrack(track, publication, participant);
             }
+          } else {
+            upsertRemoteTrack(track, publication, participant);
           }
+        }
+      });
+
+      lkRoom.on(RoomEvent.TrackUnsubscribed, (track) => {
+        if (track.kind === Track.Kind.Audio) {
+          removeRemoteTrack(track.sid);
+        }
+      });
+
+      lkRoom.on(RoomEvent.TrackPublished, async (publication, participant) => {
+        if (publication.kind !== Track.Kind.Audio) return;
+        const isWhisper = publication.name?.startsWith('whisper-');
+        const targetId = publication.name?.split('whisper-')[1];
+        try {
+          if (!isWhisper || (targetId && targetId === userId)) {
+            await publication.setSubscribed(true);
+          } else {
+            await publication.setSubscribed(false);
+          }
+        } catch (err) {
+          console.warn('Subscription control failed', err);
+        }
+      });
+
+      lkRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        const commanderSpeaker = speakers.find((s) => {
+          const meta = s.metadata ? JSON.parse(s.metadata) : {};
+          return isCommanderRank(meta.rank || meta.role);
+        });
+        if (commanderSpeaker) {
+          setPrioritySpeaker({ participantId: commanderSpeaker.identity });
+        } else {
+          setPrioritySpeaker(null);
         }
       });
 
@@ -127,6 +254,10 @@ export const LiveKitProvider = ({ children }) => {
           shipVoiceRef.current?.announce?.('Priority override acknowledged.');
           return;
         }
+        if (data.type === 'BROADCAST_STATE') {
+          setBroadcastMode(Boolean(data.enabled));
+          return;
+        }
         setDataFeed((prev) => [...prev.slice(-49), data]);
       });
 
@@ -142,7 +273,12 @@ export const LiveKitProvider = ({ children }) => {
       });
 
       await lkRoom.connect(livekitUrl, token);
-      const metaPayload = { ...(listenerPosition || {}), role: role || roleProfile || 'Vagrant' };
+      const metaPayload = {
+        ...(listenerPosition || {}),
+        role: role || roleProfile || 'Vagrant',
+        rank: role || roleProfile || 'Vagrant',
+        userId,
+      };
       lastMetadataRef.current = metaPayload;
       try {
         await lkRoom.localParticipant.setMetadata(JSON.stringify(metaPayload));
@@ -151,6 +287,20 @@ export const LiveKitProvider = ({ children }) => {
       }
       roomRef.current = lkRoom;
       setRoom(lkRoom);
+      if (devicePreferences.microphoneId) {
+        try {
+          await lkRoom.switchActiveDevice('audioinput', devicePreferences.microphoneId);
+        } catch (err) {
+          console.warn('Mic switch failed', err);
+        }
+      }
+      if (devicePreferences.speakerId) {
+        try {
+          await lkRoom.switchActiveDevice('audiooutput', devicePreferences.speakerId);
+        } catch (err) {
+          console.warn('Speaker switch failed', err);
+        }
+      }
       if (role) setRoleProfile(role);
     } catch (err) {
       console.error('LiveKit connect failed', err);
@@ -165,7 +315,14 @@ export const LiveKitProvider = ({ children }) => {
       roomRef.current.disconnect();
       roomRef.current = null;
     }
+    if (whisperTrackRef.current) {
+      whisperTrackRef.current.stop?.();
+      whisperTrackRef.current = null;
+    }
     setRoom(null);
+    setRemoteAudioTracks({});
+    setSoloTrack(null);
+    setPrioritySpeaker(null);
     setAudioState(AUDIO_STATE.DISCONNECTED);
     setConnectionState('idle');
   };
@@ -201,16 +358,92 @@ export const LiveKitProvider = ({ children }) => {
       if (transceiverRef.current && enabled && roleProfile && PIONEER_ROLES.includes(roleProfile)) {
         publishData({ type: 'MUTE_ALL' });
       }
+      if (enabled && broadcastMode) {
+        publishData({ type: 'BROADCAST_STATE', enabled: true });
+      }
     } catch (err) {
       console.error('Mic toggle failed', err);
       setError(err);
     }
   };
 
+  const updateTrackMix = (trackSid, payload) => {
+    setRemoteAudioTracks((prev) => {
+      const next = { ...prev };
+      if (!next[trackSid]) return prev;
+      next[trackSid] = { ...next[trackSid], ...payload };
+      return next;
+    });
+    applyMixForTrack(trackSid, payload);
+  };
+
+  const toggleSoloTrack = (trackSid) => {
+    setSoloTrack((current) => (current === trackSid ? null : trackSid));
+  };
+
+  const enforceParticipantMute = (participantId, muted) => {
+    Object.values(remoteAudioTracks).forEach((track) => {
+      if (track.participantId === participantId || track.userId === participantId) {
+        updateTrackMix(track.sid, { muted });
+      }
+    });
+  };
+
+  const publishWhisper = async (targetId) => {
+    if (!roomRef.current) return;
+    try {
+      if (whisperTrackRef.current) {
+        await roomRef.current.localParticipant.unpublishTrack(whisperTrackRef.current);
+        whisperTrackRef.current.stop();
+        whisperTrackRef.current = null;
+      }
+      const track = await createLocalAudioTrack({ deviceId: devicePreferences.microphoneId || undefined });
+      whisperTrackRef.current = track;
+      await roomRef.current.localParticipant.publishTrack(track, { name: `whisper-${targetId}` });
+      setCurrentWhisperTarget(targetId);
+      setBroadcastMode(false);
+    } catch (err) {
+      console.error('Whisper publish failed', err);
+    }
+  };
+
+  const stopWhisper = async () => {
+    if (!roomRef.current || !whisperTrackRef.current) return;
+    try {
+      await roomRef.current.localParticipant.unpublishTrack(whisperTrackRef.current);
+    } catch (err) {
+      console.warn('Failed to unpublish whisper', err);
+    }
+    whisperTrackRef.current.stop?.();
+    whisperTrackRef.current = null;
+    setCurrentWhisperTarget(null);
+  };
+
+  const setBroadcast = (enabled) => {
+    setBroadcastMode(enabled);
+    publishData({ type: 'BROADCAST_STATE', enabled });
+  };
+
   const publishData = (payload, reliable = true) => {
     if (!roomRef.current) return;
     const encoder = new TextEncoder();
     roomRef.current.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), { reliable });
+  };
+
+  const updateDevicePreference = async (kind, deviceId) => {
+    const preferenceKey = kind === 'audioinput' ? 'microphoneId' : 'speakerId';
+    setDevicePreferences((prev) => ({ ...prev, [preferenceKey]: deviceId }));
+    if (roomRef.current && deviceId) {
+      try {
+        await roomRef.current.switchActiveDevice(kind, deviceId);
+      } catch (err) {
+        console.warn('Device switch failed', err);
+      }
+    }
+  };
+
+  const updateProcessingPreference = (key, value) => {
+    setDevicePreferences((prev) => ({ ...prev, [key]: value }));
   };
 
   const setRole = (role) => setRoleProfile(role);
@@ -242,6 +475,8 @@ export const LiveKitProvider = ({ children }) => {
   };
   const publishAck = (payload) => publishData(payload, true);
 
+  const remoteAudioList = useMemo(() => Object.values(remoteAudioTracks), [remoteAudioTracks]);
+
   const value = {
     audioState,
     connectionState,
@@ -251,6 +486,13 @@ export const LiveKitProvider = ({ children }) => {
     lastMuteAll,
     roleProfile,
     dataFeed,
+    remoteAudioTracks: remoteAudioList,
+    prioritySpeaker,
+    soloTrack,
+    devices,
+    devicePreferences,
+    broadcastMode,
+    currentWhisperTarget,
     setListenerPosition: (pos) => {
       setListenerPosition(pos);
       const meta = { ...(lastMetadataRef.current || {}), ...pos };
@@ -264,10 +506,18 @@ export const LiveKitProvider = ({ children }) => {
     connect,
     disconnect,
     setMicrophoneEnabled,
+    updateTrackMix,
+    toggleSoloTrack,
+    enforceParticipantMute,
+    publishWhisper,
+    stopWhisper,
+    setBroadcast,
     publishData,
     publishAck,
     publishFlare,
     publishMuteAll,
+    updateDevicePreference,
+    updateProcessingPreference,
     muteAcked,
   };
 

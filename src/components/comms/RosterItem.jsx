@@ -6,15 +6,12 @@ import StatusChip from '@/components/status/StatusChip';
 import { getRankColorClass } from '@/components/utils/rankUtils';
 import RankBadge from './RankBadge';
 
-const RosterItem = ({ participant, isSpeaking, isMuted, isPtt }) => {
+const RosterItem = ({ participant, isSpeaking, isMuted, isPtt, onHail, isWhisperTarget }) => {
   const speakingStyle = isSpeaking ? 'bg-green-900/30 animate-pulse' : '';
-
-  const handleHail = () => {
-    console.log(`Hailing ${participant.callsign || participant.full_name}`);
-  };
+  const whisperStyle = isWhisperTarget ? 'border border-amber-600/50 bg-amber-900/10' : '';
 
   return (
-    <div className={cn("flex items-center justify-between p-2", speakingStyle)}>
+    <div className={cn("flex items-center justify-between p-2", speakingStyle, whisperStyle)}>
       <div className="flex items-center gap-3">
         <div>
           {isMuted ? (
@@ -43,8 +40,11 @@ const RosterItem = ({ participant, isSpeaking, isMuted, isPtt }) => {
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 hover:bg-zinc-800 text-zinc-500 hover:text-tech-white"
-          onClick={handleHail}
+          className={cn(
+            "h-6 w-6 hover:bg-zinc-800 text-zinc-500 hover:text-tech-white",
+            isWhisperTarget ? "text-amber-400" : ""
+          )}
+          onClick={onHail}
           title={`Hail ${participant.callsign || participant.full_name}`}
         >
           <Ear className="w-3 h-3" />

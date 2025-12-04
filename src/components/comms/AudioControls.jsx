@@ -1,12 +1,23 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Mic, MicOff, Radio, Activity, Zap } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Mic, MicOff, Radio, Activity, Zap, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
+import { Slider as RangeSlider } from "@/components/ui/slider";
+import { useLiveKit } from "@/hooks/useLiveKit";
 import { cn } from "@/lib/utils";
 
 export default function AudioControls({ onStateChange }) {
   const [mode, setMode] = useState("PTT"); // 'OPEN', 'PTT'
   const [isMuted, setIsMuted] = useState(false);
   const [isPTTPressed, setIsPTTPressed] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [vadLevel, setVadLevel] = useState(0);
+  const [vadThreshold, setVadThreshold] = useState(0.4);
+  const vadStreamRef = useRef(null);
+  const { devices, devicePreferences, updateDevicePreference, updateProcessingPreference } = useLiveKit();
 
   // Calculate transmission state
   const isTransmitting = !isMuted && (mode === 'OPEN' || (mode === 'PTT' && isPTTPressed));
@@ -55,8 +66,154 @@ export default function AudioControls({ onStateChange }) {
     onStateChange?.({ mode, isMuted, isTransmitting });
   }, [mode, isMuted, isTransmitting, onStateChange]);
 
+  const vadHot = vadLevel > vadThreshold;
+
+  useEffect(() => {
+    if (!showSettings) return undefined;
+    let audioContext;
+    let analyser;
+    let raf;
+    const setup = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            noiseSuppression: devicePreferences.noiseSuppression,
+            echoCancellation: devicePreferences.echoCancellation,
+            highpassFilter: devicePreferences.highPassFilter,
+          },
+        });
+        vadStreamRef.current = stream;
+        audioContext = new AudioContext();
+        analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        analyser.fftSize = 256;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const tick = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const level = Math.max(...dataArray) / 255;
+          setVadLevel(level);
+          raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch (err) {
+        console.warn('VAD calibration unavailable', err);
+      }
+    };
+    setup();
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (vadStreamRef.current) {
+        vadStreamRef.current.getTracks().forEach((t) => t.stop());
+        vadStreamRef.current = null;
+      }
+      analyser?.disconnect();
+      audioContext?.close();
+    };
+  }, [showSettings, devicePreferences]);
+
   return (
     <div className="flex flex-col items-center justify-center py-4">
+       <Dialog open={showSettings} onOpenChange={setShowSettings}>
+         <div className="w-full flex justify-end mb-3">
+           <DialogTrigger asChild>
+             <Button variant="ghost" size="sm" className="gap-2 text-[11px] uppercase tracking-[0.18em]">
+               <Settings className="w-4 h-4" />
+               Settings
+             </Button>
+           </DialogTrigger>
+         </div>
+         <DialogContent className="max-w-xl">
+           <DialogHeader>
+             <DialogTitle>Device Manager</DialogTitle>
+           </DialogHeader>
+           <div className="space-y-4">
+             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+               <div>
+                 <p className="text-xs uppercase text-slate-500 mb-1">Microphone</p>
+                 <Select
+                   value={devicePreferences.microphoneId || undefined}
+                   onValueChange={(val) => updateDevicePreference('audioinput', val)}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="Select microphone" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {devices.microphones.map((mic) => (
+                       <SelectItem key={mic.deviceId} value={mic.deviceId}>
+                         {mic.label || 'Mic'}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+               <div>
+                 <p className="text-xs uppercase text-slate-500 mb-1">Speaker</p>
+                 <Select
+                   value={devicePreferences.speakerId || undefined}
+                   onValueChange={(val) => updateDevicePreference('audiooutput', val)}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="Select output" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {devices.speakers.map((spk) => (
+                       <SelectItem key={spk.deviceId} value={spk.deviceId}>
+                         {spk.label || 'Speaker'}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+             </div>
+
+             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+               {[{ key: 'noiseSuppression', label: 'Noise Suppression' }, { key: 'echoCancellation', label: 'Echo Cancellation' }, { key: 'highPassFilter', label: 'High-Pass Filter' }].map((item) => (
+                 <div key={item.key} className="flex items-center justify-between rounded border border-slate-800 px-3 py-2">
+                   <div>
+                     <p className="text-xs font-semibold text-slate-200">{item.label}</p>
+                     <p className="text-[11px] text-slate-500">{item.key === 'highPassFilter' ? 'Filter engine rumble' : 'Improve clarity'}</p>
+                   </div>
+                   <Switch
+                     checked={devicePreferences[item.key]}
+                     onCheckedChange={(checked) => updateProcessingPreference(item.key, checked)}
+                   />
+                 </div>
+               ))}
+             </div>
+
+             <div className="rounded border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+               <div className="flex items-center justify-between text-xs uppercase text-slate-400">
+                 <span>Mic Test</span>
+                 <span className={cn('font-semibold', vadHot ? 'text-emerald-400' : 'text-slate-500')}>
+                   {Math.round(vadLevel * 100)}%
+                 </span>
+               </div>
+               <Progress value={Math.min(100, Math.round(vadLevel * 100))} className={vadHot ? 'bg-emerald-900/40' : ''} />
+               <div className="pt-2">
+                 <div className="flex items-center justify-between text-[11px] uppercase text-slate-500">
+                   <span>VAD Threshold</span>
+                   <span>{Math.round(vadThreshold * 100)}%</span>
+                 </div>
+                 <RangeSlider
+                   value={[vadThreshold]}
+                   min={0}
+                   max={1}
+                   step={0.05}
+                   onValueChange={(vals) => setVadThreshold(vals[0])}
+                 />
+                 <p className="text-[11px] text-slate-500 mt-2">
+                   Keep the bar below the threshold at idle. If it spikes while quiet, raise the bar to avoid heavy breathing or cockpit hum.
+                 </p>
+               </div>
+             </div>
+           </div>
+         </DialogContent>
+       </Dialog>
+
        <div className="relative w-40 h-40 flex items-center justify-center select-none">
           
           {/* Status Ring */}
