@@ -40,26 +40,39 @@ const LoginPage = () => {
   // Handle OAuth return (Discord) when code is present in URL
   useEffect(() => {
     const url = new URL(window.location.href);
-    const code = url.searchParams.get('code');
     const errorDescription = url.searchParams.get('error_description');
     if (errorDescription) {
       setError(errorDescription);
       return;
     }
+    const code = url.searchParams.get('code');
     if (code) {
       (async () => {
         try {
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          // Try explicit exchange (needed if site URL is not set in Supabase)
+          const { data: exchData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) {
-            setError(exchangeError.message || 'OAuth exchange failed');
+            console.error('OAuth exchange failed', exchangeError);
+            // Fall back to checking session in case Supabase already handled it
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) {
+              setError(exchangeError.message || sessionError.message || 'OAuth exchange failed');
+              return;
+            }
+            if (!sessionData?.session) {
+              setError(exchangeError.message || 'OAuth exchange failed');
+              return;
+            }
+            await syncProfileFromSession(sessionData.session);
+            navigate('/NomadOpsDashboard');
             return;
           }
-          if (data?.session) {
-            await syncProfileFromSession(data.session);
+          if (exchData?.session) {
+            await syncProfileFromSession(exchData.session);
             navigate('/NomadOpsDashboard');
           }
         } catch (err) {
-          console.error('OAuth exchange error', err);
+          console.error('OAuth return handling failed', err);
           setError(err?.message || 'OAuth exchange failed');
         }
       })();
@@ -85,6 +98,10 @@ const LoginPage = () => {
       if (!supabase) throw new Error('Supabase client not configured');
       await supabase.auth.signInWithOAuth({
         provider: 'discord',
+        options: {
+          redirectTo: `${window.location.origin}/login`,
+          scopes: 'identify email guilds.members.read',
+        },
       });
     } catch (err) {
       console.error('Discord login error', err);

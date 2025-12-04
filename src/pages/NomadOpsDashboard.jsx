@@ -1,256 +1,278 @@
-import React, { useState, useEffect } from "react";
-import OrgResourcesWidget from "@/components/dashboard/OrgResourcesWidget";
-import OrgStatusWidget from "@/components/dashboard/OrgStatusWidget";
-import StatusAlertsWidget from "@/components/dashboard/StatusAlertsWidget";
+import React, { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { getUserRankValue } from "@/components/permissions";
+
 import EventProjectionPanel from "@/components/dashboard/EventProjectionPanel";
 import PersonalLogPanel from "@/components/dashboard/PersonalLogPanel";
-import ArmoryStatusPanel from "@/components/dashboard/ArmoryStatusPanel";
-import PioneerUplink from "@/components/dashboard/PioneerUplink";
-import RankVisualizer from "@/components/dashboard/RankVisualizer";
+import ActiveNetPanel from "@/components/comms/ActiveNetPanel";
 import CommanderDashboard from "@/components/dashboard/CommanderDashboard";
 import OperatorDashboard from "@/components/dashboard/OperatorDashboard";
-import TechCard from "@/components/ui/TechCard";
-import BonfireHeartbeat from "@/components/dashboard/BonfireHeartbeat";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
-import { getUserRankValue } from "@/components/permissions";
-import { LayoutDashboard, Map, Radio } from "lucide-react";
+import TacticalMap from "@/components/ops/TacticalMap";
 
 export default function NomadOpsDashboard() {
   const { data: user } = useQuery({
-     queryKey: ['dashboard-user'],
-     queryFn: async () => {
-        if (!supabase) return null;
-        const { data } = await supabase.auth.getUser();
-        const authUser = data?.user;
-        if (!authUser) return null;
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .maybeSingle();
-        if (error) {
-          console.error('Dashboard user fetch failed', error);
-          return authUser;
-        }
-        return profile || authUser;
-     }
+    queryKey: ["dashboard-user"],
+    queryFn: async () => {
+      if (!supabase) return null;
+      const { data } = await supabase.auth.getUser();
+      const authUser = data?.user;
+      if (!authUser) return null;
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      if (error) {
+        console.error("Dashboard user fetch failed", error);
+        return authUser;
+      }
+      return profile || authUser;
+    },
   });
 
-  const [viewMode, setViewMode] = useState('standard');
+  const [viewMode, setViewMode] = useState("standard");
+  const [isBooting, setIsBooting] = useState(true);
+  const [bootStep, setBootStep] = useState(0);
+  const [utcTime, setUtcTime] = useState(
+    new Date().toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false })
+  );
+  const [latencyMs] = useState(Math.floor(20 + Math.random() * 26));
+  const [walletOpen, setWalletOpen] = useState(false);
 
-  // Determine default view based on rank/role
   useEffect(() => {
-     if (user) {
-        const rankVal = getUserRankValue(user.rank);
-        if (rankVal >= 5) { // Founder/Pioneer
-           setViewMode('commander');
-        } else if (rankVal >= 3 && rankVal <= 4) { // Scout/Voyager
-           setViewMode('operator');
-        } else {
-           setViewMode('standard');
-        }
-     }
-  }, [user]);
+    if (user && isBooting) {
+      const rankVal = getUserRankValue(user.rank);
+      if (rankVal >= 5) setViewMode("commander");
+      else if (rankVal >= 3) setViewMode("operator");
+      else setViewMode("standard");
+    }
+  }, [user, isBooting]);
 
-  const todayStr = new Date().toLocaleDateString();
-  const activeSouls = user ? 1 : 0;
+  useEffect(() => {
+    const sequence = [
+      setTimeout(() => setBootStep(1), 400),
+      setTimeout(() => setBootStep(2), 1200),
+      setTimeout(() => setBootStep(3), 1800),
+      setTimeout(() => setIsBooting(false), 2400),
+    ];
+    return () => sequence.forEach(clearTimeout);
+  }, []);
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setUtcTime(
+        new Date().toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false })
+      );
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  const handleViewModeChange = (mode) => setViewMode(mode);
+
+  const PanelContainer = ({ children, className = "" }) => (
+    <div
+      className={`relative border border-zinc-800 bg-zinc-950/90 text-tech-white overflow-hidden flex flex-col ${className}`}
+    >
+      {children}
+    </div>
+  );
+  const TechHeader = ({ title }) => (
+    <div
+      className="shrink-0 h-8 flex items-center px-3 text-[11px] font-mono uppercase tracking-[0.24em] text-[var(--burnt-orange)] border-b border-zinc-800"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(45deg, rgba(204,85,0,0.14) 0, rgba(204,85,0,0.14) 6px, transparent 6px, transparent 12px)",
+      }}
+    >
+      {title}
+    </div>
+  );
+
+  const WidgetPanel = ({ title, children, className = "" }) => (
+    <PanelContainer className={className}>
+      <TechHeader title={title} />
+      <div className="p-3 flex-1 overflow-auto custom-scrollbar">{children}</div>
+    </PanelContainer>
+  );
 
   const StandardDashboard = () => (
-    <div className="h-full w-full grid grid-rows-[auto_1fr] bg-[#0b0f12] text-tech-white relative overflow-hidden">
-      {/* Background grid */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.04]"
-        style={{
-          backgroundImage:
-            'linear-gradient(#20242c 1px, transparent 1px), linear-gradient(90deg, #20242c 1px, transparent 1px)',
-          backgroundSize: '46px 46px',
-        }}
-      />
+    <div className="h-full w-full grid grid-cols-[320px_1fr_320px] gap-2 p-2">
+      <PanelContainer>
+        <TechHeader title="Intel Systems" />
+        <div className="flex-1 p-3 text-zinc-700 text-[11px] uppercase tracking-[0.18em]">
+          {/* Left column intentionally blank while we focus on voice comms. */}
+        </div>
+      </PanelContainer>
 
-      {/* Faux intranet header */}
-      <header className="relative z-10 h-12 px-4 flex items-center justify-between border-b border-burnt-orange/60 bg-black/70 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 bg-burnt-orange text-black font-black flex items-center justify-center text-sm">
-            NX
+      <div className="flex flex-col gap-2 overflow-hidden">
+        <PanelContainer className="h-[40%] min-h-[200px]">
+          <TechHeader title="Event Projection" />
+          <div className="flex-1 p-3 overflow-hidden">
+            <EventProjectionPanel user={user} />
           </div>
-          <div>
-            <div className="text-xs uppercase tracking-[0.25em] text-burnt-orange">Nomad Nexus</div>
-            <div className="text-[11px] text-zinc-400">Intranet Control Surface</div>
+        </PanelContainer>
+        <PanelContainer className="flex-1 min-h-0">
+          <TechHeader title="Personal Log" />
+          <div className="flex-1 p-3 overflow-hidden">
+            <PersonalLogPanel user={user} />
           </div>
-        </div>
-        <div className="flex items-center gap-3 text-[11px] text-zinc-400">
-          <span className="px-2 py-1 border border-zinc-700 bg-black/50">SYS OK</span>
-          <span className="px-2 py-1 border border-zinc-700 bg-black/50">{user?.rank || 'VAGRANT'} ACCESS</span>
-        </div>
-      </header>
-
-      {/* Marquee */}
-      <div className="relative z-10 h-8 border-b border-burnt-orange/60 bg-black/80 overflow-hidden">
-        <div className="absolute inset-0 flex items-center whitespace-nowrap animate-marquee text-[11px] uppercase tracking-[0.25em] text-amber-300 px-4">
-          /// ALERT: REDSCAR NOMADS // ETERNAL VOYAGE PROTOCOL ACTIVE /// {todayStr} ///
-        </div>
+        </PanelContainer>
       </div>
 
-      {/* Status rail */}
-      <div className="relative z-10 h-10 border-b border-zinc-800 bg-black/70 px-4 flex items-center gap-4 text-[11px] uppercase tracking-[0.2em] text-zinc-400">
-        <span className="px-2 py-1 border border-zinc-700 bg-black/60">Comms Link: Online</span>
-        <span className="px-2 py-1 border border-zinc-700 bg-black/60">Uptime: Stable</span>
-        <span className="px-2 py-1 border border-zinc-700 bg-black/60">Build: Nexus v1.0</span>
-        <span className="px-2 py-1 border border-zinc-700 bg-black/60 text-burnt-orange">Mode: {viewMode.toUpperCase()}</span>
-      </div>
-
-      {/* Main workspace */}
-      <main className="relative z-10 h-full grid grid-cols-[260px_1fr_320px] gap-4 p-4 overflow-hidden">
-        {/* Explorer / Systems rail */}
-        <TechCard className="h-full grid grid-rows-[auto_1fr]">
-          <div className="px-3 py-2 border-b border-zinc-800 uppercase text-[11px] tracking-[0.2em] text-zinc-400">
-            Systems
-          </div>
-          <div className="overflow-auto divide-y divide-zinc-800 custom-scrollbar">
-            <div className="p-3">
-              <OrgResourcesWidget />
-            </div>
-            <div className="p-3">
-              <StatusAlertsWidget />
-            </div>
-            <div className="p-3">
-              <ArmoryStatusPanel />
-            </div>
-          </div>
-        </TechCard>
-
-        {/* Center workbench with tabs */}
-        <TechCard className="h-full min-h-0 bg-[#0e141a]/80 flex flex-col overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-black/50">
-            <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">Mission Workspace</div>
-            <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-              <span className="px-2 py-1 border border-zinc-800 bg-zinc-900/50">LIVE</span>
-              <span className="px-2 py-1 border border-zinc-800 bg-zinc-900/50">
-                {new Date().toLocaleTimeString([], { hour12: false })}
-              </span>
-            </div>
-          </div>
-          <Tabs defaultValue="ops" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid grid-cols-3 bg-zinc-900 border-b border-zinc-800 h-10">
-              <TabsTrigger value="ops" className="text-[11px] uppercase tracking-[0.15em]">Ops Feed</TabsTrigger>
-              <TabsTrigger value="intel" className="text-[11px] uppercase tracking-[0.15em]">Intel</TabsTrigger>
-              <TabsTrigger value="resources" className="text-[11px] uppercase tracking-[0.15em]">Resources</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="ops" className="flex-1 overflow-hidden p-4 flex flex-col gap-4">
-              <TechCard className="h-[38%] min-h-[200px]">
-                <EventProjectionPanel user={user} />
-              </TechCard>
-              <TechCard className="flex-1 min-h-0">
-                <PersonalLogPanel user={user} />
-              </TechCard>
-            </TabsContent>
-
-            <TabsContent value="intel" className="flex-1 overflow-hidden p-4 flex flex-col gap-4">
-              <TechCard className="flex-1 min-h-0">
-                <OrgStatusWidget />
-              </TechCard>
-              <TechCard className="h-[32%] min-h-[180px]">
-                <RankVisualizer currentRank={user?.rank || 'Vagrant'} />
-              </TechCard>
-            </TabsContent>
-
-            <TabsContent value="resources" className="flex-1 overflow-hidden p-4 flex flex-col gap-4">
-              <TechCard className="flex-1 min-h-0">
-                <OrgResourcesWidget />
-              </TechCard>
-              <TechCard className="h-[32%] min-h-[160px]">
-                <ArmoryStatusPanel />
-              </TechCard>
-            </TabsContent>
-          </Tabs>
-        </TechCard>
-
-        {/* Aux / Quick actions */}
-        <TechCard className="h-full grid grid-rows-[auto_1fr_auto]">
-          <div className="px-3 py-2 border-b border-zinc-800 uppercase text-[11px] tracking-[0.2em] text-zinc-400">
-            Aux Ops
-          </div>
-          <div className="overflow-auto space-y-3 p-3 custom-scrollbar">
-            <TechCard className="h-full">
-              <BonfireHeartbeat activeUserCount={activeSouls} />
-            </TechCard>
-            <TechCard className="h-full">
-              <PioneerUplink />
-            </TechCard>
-            <TechCard className="h-full">
-              <CommanderDashboard user={user} />
-            </TechCard>
-            <TechCard className="h-full">
-              <OperatorDashboard user={user} />
-            </TechCard>
-          </div>
-          <div className="border-t border-zinc-800 p-3 text-[11px] text-zinc-500 flex items-center justify-between bg-black/50">
-            <span>Uplink Stable</span>
-            <span className="text-burnt-orange">●</span>
-          </div>
-        </TechCard>
-      </main>
+      <PanelContainer>
+        <TechHeader title="Active Comms" />
+        <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
+          <ActiveNetPanel user={user} />
+        </div>
+      </PanelContainer>
     </div>
   );
 
   return (
-    <div className="h-full flex flex-col relative bg-black">
-       <div className="screen-effects" />
-       {/* Dashboard Switcher / Header */}
-       <div className="h-10 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-4 shrink-0 z-50">
-          <div className="flex items-center gap-2">
-             <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">View Mode:</span>
-             <div className="flex bg-zinc-900 border border-zinc-800 p-0.5">
-                <button 
-                  onClick={() => setViewMode('standard')}
-                  className={`px-2 py-1 text-[11px] uppercase tracking-[0.18em] border border-zinc-700 transition-colors ${
-                    viewMode === 'standard' ? 'bg-burnt-orange text-black' : 'bg-transparent text-zinc-500'
-                  }`}
-                  title="Standard Dashboard"
-                >
-                   <LayoutDashboard className="w-4 h-4" />
-                </button>
-                {getUserRankValue(user?.rank) >= 3 && (
-                  <button 
-                     onClick={() => setViewMode('operator')}
-                     className={`px-2 py-1 text-[11px] uppercase tracking-[0.18em] border border-zinc-700 transition-colors ${
-                      viewMode === 'operator' ? 'bg-burnt-orange text-black' : 'bg-transparent text-zinc-500'
-                    }`}
-                     title="Operator Console"
-                  >
-                     <Radio className="w-4 h-4" />
-                  </button>
-                )}
-                {getUserRankValue(user?.rank) >= 5 && (
-                  <button 
-                     onClick={() => setViewMode('commander')}
-                     className={`px-2 py-1 text-[11px] uppercase tracking-[0.18em] border border-zinc-700 transition-colors ${
-                      viewMode === 'commander' ? 'bg-burnt-orange text-black' : 'bg-transparent text-zinc-500'
-                    }`}
-                     title="Tactical Command"
-                  >
-                     <Map className="w-4 h-4" />
-                  </button>
-                )}
-             </div>
+    <div className="min-h-screen w-full overflow-hidden overflow-x-hidden bg-black flex flex-col relative font-mono text-tech-white">
+      <div
+        className="absolute inset-0 pointer-events-none z-0"
+        style={{ background: "radial-gradient(circle at 50% 30%, #1a1f2e 0%, #000000 70%)" }}
+      />
+      <div className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:100%_4px] z-0" />
+      <div className="screen-effects z-50 pointer-events-none" />
+
+      <div
+        className={`fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center transition-opacity duration-1000 ${
+          isBooting ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        <div className="w-96 space-y-2 font-mono text-xs">
+          <div className={`flex justify-between ${bootStep >= 1 ? "opacity-100" : "opacity-0"}`}>
+            <span className="text-zinc-500">INITIATING KERNEL...</span>
+            <span className="text-emerald-500 font-bold">OK</span>
           </div>
-          
-          {user?.rank && (
-            <div className="bg-zinc-900 border border-zinc-800 text-zinc-400 text-[9px] font-black px-2 py-0.5 uppercase tracking-widest">
-               {user.rank} CLEARANCE
+          <div className={`flex justify-between ${bootStep >= 2 ? "opacity-100" : "opacity-0"}`}>
+            <span className="text-zinc-500">ESTABLISHING SECURE HANDSHAKE...</span>
+            <span className="text-emerald-500 font-bold">OK</span>
+          </div>
+          <div className={`flex justify-between ${bootStep >= 3 ? "opacity-100" : "opacity-0"}`}>
+            <span className="text-zinc-500">DECRYPTING USER PROFILE...</span>
+            <span className="text-[var(--burnt-orange)] font-bold animate-pulse">COMPLETE</span>
+          </div>
+          {bootStep >= 1 && (
+            <div className="h-1 bg-zinc-900 mt-4 overflow-hidden">
+              <div
+                className="h-full bg-[var(--burnt-orange)] transition-all duration-[2000ms] ease-out"
+                style={{ width: bootStep >= 3 ? "100%" : bootStep >= 2 ? "60%" : "10%" }}
+              />
             </div>
           )}
-       </div>
+        </div>
+      </div>
 
-       {/* Dashboard Content */}
-       <div className="flex-1 overflow-hidden relative">
-          {viewMode === 'commander' && <CommanderDashboard user={user} />}
-          {viewMode === 'operator' && <OperatorDashboard user={user} />}
-          {viewMode === 'standard' && <StandardDashboard />}
-       </div>
+      {/* Single compact header (merged) */}
+      <header className="relative z-30 shrink-0 bg-[#0c0c0e] border-b-2 border-[var(--burnt-orange)] shadow-[0_12px_34px_rgba(0,0,0,0.55)]">
+        <div className="grid grid-cols-[480px_1fr_480px] h-48 items-center px-14 gap-12">
+          <div className="flex items-center gap-8 min-w-[420px]">
+            <div className="h-[6rem] w-[6rem] bg-[var(--burnt-orange)] text-black font-black text-6xl flex items-center justify-center">
+              NX
+            </div>
+            <div className="space-y-2">
+              <div className="text-6xl tracking-[0.3em] uppercase text-tech-white font-black leading-none">
+                Nomad Nexus
+              </div>
+              <div className="text-3xl text-zinc-300 tracking-[0.2em] leading-none">
+                Redscar Ops Interface
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-5 text-3xl uppercase tracking-[0.26em] leading-none">
+              <div className="flex items-center gap-5 text-emerald-400">
+                <span className="h-6 w-6 bg-emerald-400" />
+                <span>Sys: Online</span>
+              </div>
+              <div className="flex items-center gap-5 text-amber-300">
+                <span className="h-6 w-6 bg-amber-400" />
+                <span>Latency: {latencyMs} ms</span>
+              </div>
+              <div className="flex items-center gap-5 text-zinc-300">
+                <span className="h-6 w-6 bg-zinc-500" />
+                <span>DEFCON: 5</span>
+              </div>
+              <div className="flex items-center gap-5 text-[var(--burnt-orange)] font-black">
+                <span className="h-6 w-6 bg-[var(--burnt-orange)]" />
+                <span className="text-4xl">UTC: {utcTime}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[1fr_auto] gap-10 items-center min-w-[460px]">
+            <div className="flex flex-col justify-center items-end text-4xl uppercase tracking-[0.26em] leading-tight">
+              <div className="text-zinc-400 text-lg">User</div>
+              <div className="text-tech-white font-bold text-4xl truncate max-w-[300px] text-right">
+                {user?.callsign || user?.email || "Guest"}
+              </div>
+              <div className="text-[var(--burnt-orange)] font-black text-3xl">
+                {user?.rank ? String(user.rank).toUpperCase() : "VAGRANT"}
+              </div>
+            </div>
+            <div className="relative flex items-center">
+              <button
+                type="button"
+                onClick={() => setWalletOpen((prev) => !prev)}
+                className="flex items-center gap-5 px-10 py-6 border border-[var(--burnt-orange)] text-2xl font-black uppercase tracking-[0.3em] bg-black/70 hover:bg-[var(--burnt-orange)] hover:text-black transition-colors whitespace-nowrap"
+                title="Toggle wallet & coffer overview"
+              >
+                <span>Wallet</span>
+                <span className="text-amber-300">
+                  {user?.wallet_balance
+                    ? `${user.wallet_balance.toLocaleString()} aUEC`
+                    : "N/A"}
+                </span>
+              </button>
+              {walletOpen && (
+                <div className="absolute right-0 top-full mt-3 w-96 border border-zinc-800 bg-zinc-950 shadow-2xl p-6 text-lg space-y-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Personal aUEC</span>
+                    <span className="text-tech-white font-bold">
+                      {user?.wallet_balance ? `${user.wallet_balance.toLocaleString()} aUEC` : "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Redscar Coffer</span>
+                    <span className="text-[var(--burnt-orange)] font-bold">
+                      {user?.org_coffer_total
+                        ? `${user.org_coffer_total.toLocaleString()} aUEC`
+                        : "-"}
+                    </span>
+                  </div>
+                  <div className="text-zinc-500 text-[11px] tracking-[0.18em]">
+                    Click outside to close.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div
+        className={`flex-1 flex overflow-hidden relative z-10 transition-all duration-700 ${
+          isBooting ? "blur-sm scale-95 opacity-0" : "blur-0 scale-100 opacity-100"
+        } w-full`}
+      >
+        <div className="flex-1 relative overflow-hidden bg-black/40 p-4 box-border">
+          <div className="absolute top-2 left-2 w-4 h-4 border-t border-l border-[var(--burnt-orange)] opacity-50" />
+          <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-[var(--burnt-orange)] opacity-50" />
+          <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-[var(--burnt-orange)] opacity-50" />
+          <div className="absolute bottom-2 right-2 w-4 h-4 border-b border-r border-[var(--burnt-orange)] opacity-50" />
+
+          <div className="relative h-full w-full">
+            {viewMode === "commander" && <CommanderDashboard user={user} />}
+            {viewMode === "operator" && <OperatorDashboard user={user} />}
+            {viewMode === "standard" && <StandardDashboard />}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

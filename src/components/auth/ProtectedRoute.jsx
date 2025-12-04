@@ -29,8 +29,8 @@ const ProtectedRoute = ({ children }) => {
           .eq('id', user.id)
           .maybeSingle();
         if (profileError) {
-          console.error('Profile fetch failed', profileError);
-          setAuthed(false);
+          console.warn('Profile fetch failed; allowing session through', profileError);
+          setAuthed(true);
           return;
         }
         if (profile?.is_guest && profile?.guest_expires_at && new Date(profile.guest_expires_at) < new Date()) {

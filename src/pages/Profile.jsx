@@ -25,18 +25,26 @@ export default function ProfilePage() {
           setLoading(false);
           return;
         }
+
         const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
+          .from("profiles")
+          .select("*")
+          .eq("id", authUser.id)
           .maybeSingle();
-        if (error) throw error;
-        const profileData = profile || {};
-        setUser(profileData);
-        setValue("callsign", profileData.callsign || "");
-        setValue("rsi_handle", profileData.rsi_handle || "");
-        setValue("full_name", profileData.full_name || authUser.email || "");
-        setValue("rank", profileData.rank || "Vagrant");
+
+        if (error && error.code !== "PGRST116") throw error;
+
+        const mergedUser = {
+          id: authUser.id,
+          email: authUser.email,
+          ...(profile || {}),
+        };
+
+        setUser(mergedUser);
+        setValue("callsign", mergedUser.callsign || "");
+        setValue("rsi_handle", mergedUser.rsi_handle || "");
+        setValue("full_name", mergedUser.full_name || authUser.email || "");
+        setValue("rank", mergedUser.rank || "Vagrant");
       } catch (error) {
         console.error("Failed to load user", error);
       } finally {
@@ -48,23 +56,28 @@ export default function ProfilePage() {
 
   const onSubmit = async (data) => {
     try {
-      if (!supabase || !user?.id) throw new Error("No user session");
-      const updates = {
-        callsign: data.callsign,
-        rsi_handle: data.rsi_handle,
+      if (!supabase) throw new Error("No Supabase client");
+      const userId = user?.id;
+      if (!userId) throw new Error("No user session");
+
+      const payload = {
+        id: userId,
+        callsign: data.callsign?.trim() || null,
+        rsi_handle: data.rsi_handle?.trim() || null,
         rank: data.rank,
       };
-      const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-      if (error) throw error;
-      toast.success("Profile updated successfully");
 
-      const { data: refreshed, error: refreshError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
+      const { data: upserted, error } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" })
+        .select()
         .maybeSingle();
-      if (refreshError) throw refreshError;
-      setUser(refreshed || user);
+
+      if (error) throw error;
+
+      const nextUser = upserted || { ...user, ...payload };
+      setUser(nextUser);
+      toast.success("Profile updated successfully");
     } catch (error) {
       console.error("Update failed", error);
       toast.error("Failed to update profile");

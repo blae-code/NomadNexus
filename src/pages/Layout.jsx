@@ -12,6 +12,7 @@ import { supabase } from "../lib/supabase";
 export default function Layout({ children, currentPageName }) {
   const [time, setTime] = useState(new Date());
   const [user, setUser] = useState(null);
+  const [walletOpen, setWalletOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -37,6 +38,20 @@ export default function Layout({ children, currentPageName }) {
     fetchUser();
     return () => clearInterval(timer);
   }, []);
+
+  const walletBalance =
+    user?.auec_wallet ??
+    user?.wallet_balance ??
+    user?.auec ??
+    user?.wallet ??
+    null;
+  const orgCoffer = user?.org_coffer_total ?? user?.coffer_total ?? null;
+  const formatAuec = (val) => {
+    if (val === null || val === undefined) return "—";
+    const num = Number(val);
+    if (Number.isNaN(num)) return "—";
+    return `${num.toLocaleString()} aUEC`;
+  };
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-200 font-sans selection:bg-[#ea580c]/30 flex flex-col overflow-hidden">
@@ -102,60 +117,88 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
-      {/* Static Header (Top Control Bar) */}
-      <header className="h-12 shrink-0 border-b border-zinc-800 bg-zinc-950 flex items-center px-4 justify-between z-50 relative">
+      {/* Compact Header (Top Control Bar) */}
+      <header className="h-6 shrink-0 border-b border-zinc-800 bg-zinc-950 flex items-center px-2 justify-between z-50 relative">
 
         {/* Logo Section */}
-        <div className="flex items-center gap-4 w-64">
-          <a href={createPageUrl('NomadOpsDashboard')} className="flex items-center gap-3 group cursor-pointer">
-            <div className="w-8 h-8 bg-[#ea580c] flex items-center justify-center group-hover:bg-[#c2410c] transition-colors">
-              <Terminal className="w-5 h-5 text-black" />
+        <div className="flex items-center gap-2 min-w-[180px]">
+          <a href={createPageUrl('NomadOpsDashboard')} className="flex items-center gap-2 group cursor-pointer">
+            <div className="w-5 h-5 bg-[#ea580c] flex items-center justify-center group-hover:bg-[#c2410c] transition-colors">
+              <Terminal className="w-3.5 h-3.5 text-black" />
             </div>
-            <div className="flex flex-col justify-center">
-              <h1 className="text-lg font-black uppercase tracking-widest text-white leading-none group-hover:text-[#ea580c] transition-colors">REDSCAR</h1>
-              <span className="text-[9px] font-mono text-zinc-500 tracking-[0.2em]">NOMAD OPS</span>
+            <div className="flex flex-col justify-center leading-none">
+              <h1 className="text-[13px] font-black uppercase tracking-[0.18em] text-white group-hover:text-[#ea580c] transition-colors">REDSCAR</h1>
+              <span className="text-[7px] font-mono text-zinc-500 tracking-[0.28em]">NOMAD OPS</span>
             </div>
           </a>
         </div>
 
-        {/* Command Palette / Universal Search - Centered & Enhanced */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl px-4">
+        {/* Command Palette / Universal Search */}
+        <div className="flex-1 flex items-center justify-center px-2">
            <CommandPalette />
         </div>
 
         {/* Time Tracker & Profile */}
-        <div className="flex items-center gap-6 justify-end min-w-fit">
+        <div className="flex items-center gap-3 justify-end min-w-fit">
            <NetworkStatusIndicator />
            
-           <div className="flex flex-col items-end">
-              <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+           <div className="flex flex-col items-end leading-tight">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-300">
                  <Clock className="w-3 h-3 text-[#ea580c]" />
-                 {time.toLocaleTimeString([], { hour12: false })} <span className="text-[10px] text-zinc-600">LCL</span>
+                 {time.toLocaleTimeString([], { hour12: false })} <span className="text-[8px] text-zinc-600">LCL</span>
               </div>
-              <div className="text-[10px] font-mono text-zinc-500">
+              <div className="text-[8px] font-mono text-zinc-500">
                  {time.toISOString().split('T')[1].split('.')[0]} <span className="text-zinc-700">UTC</span>
               </div>
            </div>
 
-           <div className="h-8 w-[1px] bg-zinc-800" />
+           <div className="h-6 w-[1px] bg-zinc-800" />
 
-           <div className="flex items-center gap-2">
-             <a href={createPageUrl('Profile')} className="group flex items-center gap-3 cursor-pointer hover:bg-zinc-900 px-2 py-1 rounded transition-colors">
-                <div className="text-right hidden md:block">
-                   <div className="text-xs font-bold text-zinc-300 group-hover:text-white">
-                      {user ? (user.role === 'admin' ? "SYSTEM ADMIN" : (user.callsign || user.rsi_handle || "OPERATIVE")) : "GUEST"}
-                   </div>
-                   <div className={cn(
-                      "text-[9px] font-mono uppercase tracking-wider group-hover:text-white transition-colors",
-                      getRankColorClass(user?.rank, 'text')
-                   )}>
-                      {user?.rank || "VAGRANT"}
-                   </div>
-                </div>
-                <div className="w-8 h-8 bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-[#ea580c] transition-colors">
-                   <User className="w-4 h-4 text-zinc-500 group-hover:text-[#ea580c]" />
-                </div>
+           <div className="flex items-center gap-3 relative">
+             <a href={createPageUrl('Profile')} className="group flex items-center gap-2 cursor-pointer hover:bg-zinc-900 px-2 py-0.5 transition-colors">
+               <div className="text-right hidden md:block">
+                 <div className="text-[10px] font-bold text-zinc-300 group-hover:text-white">
+                    {user ? (user.role === 'admin' ? "SYSTEM ADMIN" : (user.callsign || user.rsi_handle || "OPERATIVE")) : "GUEST"}
+                 </div>
+                 <div
+                   className={cn(
+                     "text-[7px] font-mono uppercase tracking-wider group-hover:text-white transition-colors flex items-center gap-1",
+                     getRankColorClass(user?.rank, 'text')
+                   )}
+                   title="Rank"
+                 >
+                   <span>{user?.rank || "VAGRANT"}</span>
+                 </div>
+               </div>
+               <div className="w-6 h-6 bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-[#ea580c] transition-colors">
+                 <User className="w-3.5 h-3.5 text-zinc-500 group-hover:text-[#ea580c]" />
+               </div>
              </a>
+
+             {/* Wallet column */}
+             <div className="relative">
+               <button
+                 type="button"
+                 onClick={() => setWalletOpen((prev) => !prev)}
+                 className="flex items-center gap-2 px-2 py-1 border border-zinc-800 bg-zinc-950 text-[9px] font-mono uppercase tracking-[0.18em] text-amber-300 hover:border-[#ea580c] hover:text-white transition-colors"
+                 title="Toggle wallet & coffer overview"
+               >
+                 <span>Wallet</span>
+                 <span className="text-amber-400 font-black">{formatAuec(walletBalance)}</span>
+               </button>
+               {walletOpen && (
+                 <div className="absolute right-0 top-full mt-1 w-56 bg-black border border-zinc-800 shadow-lg p-3 font-mono text-[11px] text-zinc-300 z-50">
+                   <div className="flex items-center justify-between">
+                     <span className="text-zinc-500 uppercase tracking-[0.18em]">Org Coffer</span>
+                     <span className="text-emerald-400 font-bold">{formatAuec(orgCoffer)}</span>
+                   </div>
+                   <div className="mt-2 text-[10px] text-zinc-500">
+                     Includes pooled Redscar funds. Visit Treasury for full breakdown.
+                   </div>
+                 </div>
+               )}
+             </div>
+
              <button
                 onClick={async () => {
                   try {
@@ -171,7 +214,7 @@ export default function Layout({ children, currentPageName }) {
                    console.error("Logout failed", err);
                  }
                }}
-               className="h-8 px-3 border border-zinc-800 bg-zinc-950 text-zinc-300 text-[11px] font-mono tracking-widest hover:border-[#ea580c] hover:text-white flex items-center gap-2"
+               className="h-7 px-3 border border-zinc-800 bg-zinc-950 text-zinc-300 text-[10px] font-mono tracking-widest hover:border-[#ea580c] hover:text-white flex items-center gap-2"
                title="Logout"
              >
                <LogOut className="w-4 h-4" />
