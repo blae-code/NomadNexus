@@ -16,13 +16,23 @@ class SpatialMixer {
     this.stage = stage;
   }
 
-  public calculateMix(node: Point2D, listener: Point2D) {
-    const pan = this.clamp((node.x - listener.x) / (this.stage.width / 2), -1, 1);
+  public calculateMix(node: Point2D & { squadId?: string }, listener: Point2D, relativeSquadPosition?: string | Point2D) {
+    let pan = this.clamp((node.x - listener.x) / (this.stage.width / 2), -1, 1);
     const distance = Math.hypot(node.x - listener.x, node.y - listener.y);
     const maxDistance = Math.hypot(this.stage.width, this.stage.height);
     const gain = this.clamp(1 - distance / (maxDistance * 0.5), 0, 1);
+
+    if (relativeSquadPosition) {
+      if (typeof relativeSquadPosition === 'string') {
+        if (relativeSquadPosition.toLowerCase() === 'west') pan -= 0.15;
+        if (relativeSquadPosition.toLowerCase() === 'east') pan += 0.15;
+      } else {
+        pan += this.clamp(relativeSquadPosition.x / this.stage.width, -0.25, 0.25);
+      }
+    }
+
     return {
-      pan: Number(pan.toFixed(2)),
+      pan: Number(this.clamp(pan, -1, 1).toFixed(2)),
       gain: Number(gain.toFixed(2)),
       distance,
     };

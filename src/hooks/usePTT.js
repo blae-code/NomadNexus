@@ -1,20 +1,61 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveKit } from './useLiveKit';
 
-export const usePTT = () => {
-  const { setMicrophoneEnabled, audioState } = useLiveKit();
+export const usePTT = ({
+  squadKey = 'Space',
+  commandKey = 'AltLeft',
+  whisperKey = 'ControlLeft',
+  latchKey = 'KeyL',
+} = {}) => {
+  const { setMicrophoneEnabled, audioState, publishWhisper, stopWhisper, currentWhisperTarget, setBroadcast } = useLiveKit();
+  const [latched, setLatched] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.code === 'Space' && audioState !== 'DISCONNECTED') {
+      if (audioState === 'DISCONNECTED') return;
+      if (event.code === latchKey) {
+        setLatched((prev) => {
+          const next = !prev;
+          setMicrophoneEnabled(next);
+          if (!next) {
+            setBroadcast(false);
+            stopWhisper();
+          }
+          return next;
+        });
+        return;
+      }
+
+      if (latched) return;
+
+      if (event.code === squadKey) {
         event.preventDefault();
+        setBroadcast(false);
+        stopWhisper();
+        setMicrophoneEnabled(true);
+        return;
+      }
+
+      if (event.code === commandKey) {
+        event.preventDefault();
+        setBroadcast(true);
+        setMicrophoneEnabled(true);
+        return;
+      }
+
+      if (event.code === whisperKey && currentWhisperTarget) {
+        event.preventDefault();
+        publishWhisper(currentWhisperTarget);
         setMicrophoneEnabled(true);
       }
     };
 
     const handleKeyUp = (event) => {
-      if (event.code === 'Space' && audioState !== 'DISCONNECTED') {
+      if (audioState === 'DISCONNECTED' || latched) return;
+      if ([squadKey, commandKey, whisperKey].includes(event.code)) {
         event.preventDefault();
+        setBroadcast(false);
+        stopWhisper();
         setMicrophoneEnabled(false);
       }
     };
@@ -26,5 +67,5 @@ export const usePTT = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [setMicrophoneEnabled, audioState]);
+  }, [audioState, commandKey, currentWhisperTarget, latchKey, latched, publishWhisper, setBroadcast, setMicrophoneEnabled, squadKey, stopWhisper, whisperKey]);
 };
