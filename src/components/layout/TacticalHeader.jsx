@@ -2,6 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Wifi, AlertTriangle } from "lucide-react";
 import { useLiveKit } from "@/hooks/useLiveKit";
 
+import React, { useEffect, useMemo, useState } from "react";
+import { Wifi, AlertTriangle, Settings } from "lucide-react";
+import { useLiveKit } from "@/hooks/useLiveKit";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+
 export default function TacticalHeader({
   user,
   latencyMs,
@@ -12,6 +18,8 @@ export default function TacticalHeader({
   walletOpen,
   viewMode,
   onViewModeChange,
+  isEditing,
+  onIsEditingChange,
 }) {
   const { connectionState } = useLiveKit() || {};
   const [clock, setClock] = useState(utcTime);
@@ -88,7 +96,7 @@ export default function TacticalHeader({
       </div>
 
       <div className="border-t border-zinc-800 bg-black/70 px-8 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-zinc-300">
+        <div className="flex items-center gap-4 text-sm text-zinc-300">
           <div className="label-plate px-2 py-1">Mode Rail</div>
           <div className="flex items-center divide-x divide-zinc-800 border border-[var(--burnt-orange)]">
             {[
@@ -109,6 +117,11 @@ export default function TacticalHeader({
                 {mode.label}
               </button>
             ))}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Settings className="w-5 h-5 text-zinc-500" />
+            <Label htmlFor="edit-mode-toggle" className="text-xs font-bold uppercase tracking-wider">Configure Layout</Label>
+            <Switch id="edit-mode-toggle" checked={isEditing} onCheckedChange={onIsEditingChange} />
           </div>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-zinc-400 uppercase tracking-[0.2em]">

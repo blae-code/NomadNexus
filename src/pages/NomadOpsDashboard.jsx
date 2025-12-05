@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { getUserRankValue } from "@/components/permissions";
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { arrayMove, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { SortableItem } from '@/components/ui/SortableItem';
 
 import EventProjectionPanel from "@/components/dashboard/EventProjectionPanel";
 import PersonalLogPanel from "@/components/dashboard/PersonalLogPanel";
@@ -39,6 +42,12 @@ export default function NomadOpsDashboard() {
   );
   const [latencyMs] = useState(Math.floor(20 + Math.random() * 26));
   const [walletOpen, setWalletOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [panels, setPanels] = useState([
+    { id: 'events', component: EventProjectionPanel, title: 'Event Projection' },
+    { id: 'log', component: PersonalLogPanel, title: 'Personal Log' },
+    { id: 'comms', component: ActiveNetPanel, title: 'Active Comms' },
+  ]);
 
   useEffect(() => {
     if (user && isBooting) {
@@ -69,6 +78,17 @@ export default function NomadOpsDashboard() {
   }, []);
 
   const handleViewModeChange = (mode) => setViewMode(mode);
+  
+  const handleDragEnd = (event) => {
+    const {active, over} = event;
+    if (active.id !== over.id) {
+      setPanels((items) => {
+        const oldIndex = items.findIndex(item => item.id === active.id);
+        const newIndex = items.findIndex(item => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
 
   const PanelContainer = ({ children, className = "" }) => (
     <div className={`relative border border-[var(--burnt-orange)] bg-[var(--gunmetal)] text-white overflow-hidden flex flex-col ${className}`}>
@@ -79,36 +99,23 @@ export default function NomadOpsDashboard() {
     <div className="label-plate px-3 py-2 border-b border-[var(--burnt-orange)]">{title}</div>
   );
 
-  const WidgetPanel = ({ title, children, className = "" }) => (
-    <PanelContainer className={className}>
-      <TechHeader title={title} />
-      <div className="p-3 flex-1 overflow-auto custom-scrollbar">{children}</div>
-    </PanelContainer>
-  );
-
   const StandardDashboard = () => (
-    <div className="h-full w-full grid grid-cols-1 md:grid-cols-[360px_1fr_360px] gap-3 p-3 bg-black">
-      <PanelContainer>
-        <TechHeader title="Event Projection" />
-        <div className="flex-1 p-3 overflow-hidden">
-          <EventProjectionPanel user={user} />
+    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={panels.map(p => p.id)} strategy={rectSortingStrategy}>
+        <div className="h-full w-full grid grid-cols-1 md:grid-cols-[360px_1fr_360px] gap-3 p-3 bg-black">
+          {panels.map(({ id, component: PanelComponent, title }) => (
+            <SortableItem key={id} id={id} isEditing={isEditing}>
+              <PanelContainer>
+                <TechHeader title={title} />
+                <div className="flex-1 p-3 overflow-hidden">
+                  <PanelComponent user={user} />
+                </div>
+              </PanelContainer>
+            </SortableItem>
+          ))}
         </div>
-      </PanelContainer>
-
-      <PanelContainer>
-        <TechHeader title="Personal Log" />
-        <div className="flex-1 p-3 overflow-hidden">
-          <PersonalLogPanel user={user} />
-        </div>
-      </PanelContainer>
-
-      <PanelContainer>
-        <TechHeader title="Active Comms" />
-        <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
-          <ActiveNetPanel user={user} />
-        </div>
-      </PanelContainer>
-    </div>
+      </SortableContext>
+    </DndContext>
   );
 
   return (
@@ -159,6 +166,8 @@ export default function NomadOpsDashboard() {
         walletOpen={walletOpen}
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
+        isEditing={isEditing}
+        onIsEditingChange={setIsEditing}
       />
 
       <div
