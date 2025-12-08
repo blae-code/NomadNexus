@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Room, RoomEvent, Track, createLocalAudioTrack } from 'livekit-client';
+import { Room, RoomEvent, Track, createLocalAudioTrack, ConnectionQuality } from 'livekit-client';
 import AudioProcessor from '../api/AudioProcessor';
 import SpatialMixer from '../api/SpatialMixer';
 import TacticalTransceiver from '../api/TacticalTransceiver';
@@ -77,9 +77,17 @@ export const LiveKitProvider = ({ children }) => {
   });
   const [broadcastMode, setBroadcastMode] = useState(false);
   const [currentWhisperTarget, setCurrentWhisperTarget] = useState(null);
+  const [connectionMetrics, setConnectionMetrics] = useState({
+    quality: 'offline',
+    latencyMs: 0,
+    packetLoss: 0,
+    jitter: 0,
+    bandwidth: { inKbps: 0, outKbps: 0 },
+  });
 
   useEffect(() => {
-    shipVoiceRef.current = new ShipVoice();
+    // Initialize ShipVoice with a sane default voice to avoid undefined profile logs.
+    shipVoiceRef.current = new ShipVoice('Microsoft Zira - English (United States)');
   }, []);
 
   useEffect(() => {
@@ -102,6 +110,13 @@ export const LiveKitProvider = ({ children }) => {
         roomRef.current.disconnect();
         roomRef.current = null;
       }
+      setConnectionMetrics({
+        quality: 'offline',
+        latencyMs: 0,
+        packetLoss: 0,
+        jitter: 0,
+        bandwidth: { inKbps: 0, outKbps: 0 },
+      });
     };
   }, []);
 
@@ -157,12 +172,21 @@ export const LiveKitProvider = ({ children }) => {
     AudioProcessor.getInstance().stopProcessing?.(sid);
   };
 
-  const connect = async ({ roomName, participantName, listenerPosition, role, userId }) => {
+  const connect = async ({ roomName, participantName, listenerPosition, role, userId, tokenOverride, serverUrlOverride }) => {
     if (!roomName) return;
     setConnectionState('connecting');
     setError(null);
     try {
-      const { token, livekitUrl } = await fetchToken({ roomName, participantName });
+      const tokenPayload = tokenOverride
+        ? { token: tokenOverride, livekitUrl: serverUrlOverride }
+        : await fetchToken({ roomName, participantName });
+
+      const livekitUrl = tokenPayload.livekitUrl || serverUrlOverride;
+      const authToken = tokenOverride || tokenPayload.token;
+
+      if (!authToken || !livekitUrl) {
+        throw new Error('LiveKit credentials missing (token or serverUrl)');
+      }
       const lkRoom = new Room({
         adaptiveStream: true,
         dynacast: true,
@@ -270,13 +294,107 @@ export const LiveKitProvider = ({ children }) => {
           setAudioState(AUDIO_STATE.DISCONNECTED);
           setRoom(null);
         }
+        if (state !== 'connected') {
+          setConnectionMetrics((prev) => ({
+            ...prev,
+            quality: state === 'reconnecting' ? 'fair' : 'offline',
+            bandwidth: { inKbps: 0, outKbps: 0 },
+          }));
+        }
       });
 
+      // Track connection quality updates for the local participant
+      const handleQuality = (participant, quality) => {
+        if (!participant.isLocal) return;
+        const qualityMap = {
+          [ConnectionQuality.Excellent]: 'excellent',
+          [ConnectionQuality.Good]: 'good',
+          [ConnectionQuality.Poor]: 'poor',
+          [ConnectionQuality.Lost]: 'offline',
+        };
+        setConnectionMetrics((prev) => ({
+          ...prev,
+          quality: qualityMap[quality] || 'fair',
+        }));
+      };
+      lkRoom.on(RoomEvent.ConnectionQualityChanged, handleQuality);
+
+      // Seed initial quality if available
+      if (lkRoom.localParticipant?.connectionQuality !== undefined) {
+        handleQuality(lkRoom.localParticipant, lkRoom.localParticipant.connectionQuality);
+      }
+
+      // Poll WebRTC stats when available for latency / packet loss
+      let statsInterval = null;
+      const startStatsPoll = () => {
+        if (statsInterval) return;
+        statsInterval = setInterval(async () => {
+          try {
+            const pc = lkRoom.engine?.client?.publisher?.pc || lkRoom.engine?.client?.pc;
+            if (!pc || !pc.getStats) return;
+            const stats = await pc.getStats();
+            let rtt = 0;
+            let loss = 0;
+            let jitter = 0;
+            let inKbps = 0;
+            let outKbps = 0;
+
+            stats.forEach((report) => {
+              if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                rtt = Math.round((report.currentRoundTripTime || 0) * 1000);
+                if (report.currentPacketsLost !== undefined && report.currentPacketsReceived !== undefined) {
+                  const total = (report.currentPacketsReceived || 0) + (report.currentPacketsLost || 0);
+                  loss = total > 0 ? Math.min(100, ((report.currentPacketsLost || 0) / total) * 100) : 0;
+                }
+              }
+              if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                jitter = Math.max(jitter, Math.round((report.jitter || 0) * 1000));
+              }
+              if (report.type === 'remote-inbound-rtp' && report.kind === 'audio') {
+                jitter = Math.max(jitter, Math.round((report.jitter || 0) * 1000));
+              }
+              if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+                if (report.bitrateMean) outKbps = Math.max(outKbps, Math.round(report.bitrateMean / 1000));
+              }
+              if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                if (report.bitrateMean) inKbps = Math.max(inKbps, Math.round(report.bitrateMean / 1000));
+              }
+            });
+
+            setConnectionMetrics((prev) => ({
+              ...prev,
+              latencyMs: rtt,
+              packetLoss: Number(loss.toFixed(2)),
+              jitter,
+              bandwidth: { inKbps, outKbps },
+            }));
+          } catch (err) {
+            // Swallow stats failures silently to avoid UI spam
+          }
+        }, 2500);
+      };
+
+      if (lkRoom.engine?.client) {
+        startStatsPoll();
+      }
+
+      // Cleanup listeners and intervals on disconnect
+      const cleanupMetrics = () => {
+        lkRoom.off(RoomEvent.ConnectionQualityChanged, handleQuality);
+        if (statsInterval) {
+          clearInterval(statsInterval);
+          statsInterval = null;
+        }
+      };
+
+      lkRoom.on(RoomEvent.Disconnected, cleanupMetrics);
+
       await lkRoom.connect(livekitUrl, token);
+      const resolvedRole = role || roleProfile || 'Vagrant';
       const metaPayload = {
         ...(listenerPosition || {}),
-        role: role || roleProfile || 'Vagrant',
-        rank: role || roleProfile || 'Vagrant',
+        role: resolvedRole,
+        rank: resolvedRole,
         userId,
       };
       lastMetadataRef.current = metaPayload;
@@ -287,6 +405,12 @@ export const LiveKitProvider = ({ children }) => {
       }
       roomRef.current = lkRoom;
       setRoom(lkRoom);
+      // Ensure ShipVoice has a profile aligned to role so voice lines pick a defined profile.
+      try {
+        shipVoiceRef.current?.setVoiceProfile?.(resolvedRole);
+      } catch (err) {
+        console.warn('ShipVoice profile set failed', err);
+      }
       if (devicePreferences.microphoneId) {
         try {
           await lkRoom.switchActiveDevice('audioinput', devicePreferences.microphoneId);
@@ -482,6 +606,7 @@ export const LiveKitProvider = ({ children }) => {
     connectionState,
     room,
     error,
+    connectionMetrics,
     lastFlare,
     lastMuteAll,
     roleProfile,

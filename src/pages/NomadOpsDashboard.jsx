@@ -1,52 +1,65 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import React, { useState, useEffect } from "react";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { getUserRankValue } from "@/components/permissions";
-import { DndContext, closestCenter } from '@dnd-kit/core';
-import { arrayMove, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
-import { SortableItem } from '@/components/ui/SortableItem';
+import { 
+  DndContext, 
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+} from '@dnd-kit/core';
+import { 
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
 
 import EventProjectionPanel from "@/components/dashboard/EventProjectionPanel";
 import PersonalLogPanel from "@/components/dashboard/PersonalLogPanel";
-import ActiveNetPanel from "@/components/comms/ActiveNetPanel";
+import CommsDashboardPanel from "@/components/comms/CommsDashboardPanel";
+import { useLiveKit } from '@/hooks/useLiveKit';
 import CommanderDashboard from "@/components/dashboard/CommanderDashboard";
 import OperatorDashboard from "@/components/dashboard/OperatorDashboard";
 import TacticalHeader from "@/components/layout/TacticalHeader";
+import TickerBanner from "@/components/layout/TickerBanner";
+import StandardDashboard from "@/components/dashboard/StandardDashboard";
 
 export default function NomadOpsDashboard() {
-  const { data: user } = useQuery({
-    queryKey: ["dashboard-user"],
-    queryFn: async () => {
-      if (!supabase) return null;
-      const { data } = await supabase.auth.getUser();
-      const authUser = data?.user;
-      if (!authUser) return null;
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .maybeSingle();
-      if (error) {
-        console.error("Dashboard user fetch failed", error);
-        return authUser;
-      }
-      return profile || authUser;
-    },
-  });
+  const { data: user } = useUserProfile();
 
   const [viewMode, setViewMode] = useState("standard");
   const [isBooting, setIsBooting] = useState(true);
   const [bootStep, setBootStep] = useState(0);
-  const [utcTime, setUtcTime] = useState(
-    new Date().toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false })
-  );
-  const [latencyMs] = useState(Math.floor(20 + Math.random() * 26));
+  const [utcTime, setUtcTime] = useState("--:--:--");
+  const [latencyMs, setLatencyMs] = useState(0);
   const [walletOpen, setWalletOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const { room, connectionState, audioState } = useLiveKit();
   const [panels, setPanels] = useState([
-    { id: 'events', component: EventProjectionPanel, title: 'Event Projection' },
+    { 
+      id: 'events', 
+      component: (props) => (
+        <EventProjectionPanel 
+          {...props} 
+          onEventSelect={setSelectedEventId}
+          selectedEventId={selectedEventId}
+        />
+      ), 
+      title: 'Event Projection' 
+    },
     { id: 'log', component: PersonalLogPanel, title: 'Personal Log' },
-    { id: 'comms', component: ActiveNetPanel, title: 'Active Comms' },
+    {
+      id: 'comms',
+      component: (props) => (
+        <CommsDashboardPanel
+          {...props}
+          eventId={selectedEventId}
+        />
+      ),
+      title: 'Active Comms',
+    },
   ]);
 
   useEffect(() => {
@@ -59,6 +72,24 @@ export default function NomadOpsDashboard() {
   }, [user, isBooting]);
 
   useEffect(() => {
+    setLatencyMs(Math.floor(20 + Math.random() * 26));
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    const handleChange = (event) => setPrefersReducedMotion(event.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      setIsBooting(false);
+      setBootStep(3);
+      return;
+    }
+
     const sequence = [
       setTimeout(() => setBootStep(1), 400),
       setTimeout(() => setBootStep(2), 1200),
@@ -66,60 +97,64 @@ export default function NomadOpsDashboard() {
       setTimeout(() => setIsBooting(false), 2400),
     ];
     return () => sequence.forEach(clearTimeout);
-  }, []);
+  }, [prefersReducedMotion]);
 
   useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: "UTC",
+      hour12: false,
+    });
+    setUtcTime(formatter.format(new Date()));
+
     const tick = setInterval(() => {
-      setUtcTime(
-        new Date().toLocaleTimeString("en-GB", { timeZone: "UTC", hour12: false })
-      );
+      setUtcTime(formatter.format(new Date()));
     }, 1000);
     return () => clearInterval(tick);
   }, []);
 
   const handleViewModeChange = (mode) => setViewMode(mode);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   
   const handleDragEnd = (event) => {
     const {active, over} = event;
+    
+    if (!over) return;
+
     if (active.id !== over.id) {
       setPanels((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
         const newIndex = items.findIndex(item => item.id === over.id);
+
+        if (oldIndex === -1 || newIndex === -1) {
+          return items;
+        }
+
         return arrayMove(items, oldIndex, newIndex);
       });
     }
   };
 
-  const PanelContainer = ({ children, className = "" }) => (
-    <div className={`relative border border-[var(--burnt-orange)] bg-[var(--gunmetal)] text-white overflow-hidden flex flex-col ${className}`}>
-      {children}
-    </div>
-  );
-  const TechHeader = ({ title }) => (
-    <div className="label-plate px-3 py-2 border-b border-[var(--burnt-orange)]">{title}</div>
-  );
-
-  const StandardDashboard = () => (
-    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={panels.map(p => p.id)} strategy={rectSortingStrategy}>
-        <div className="h-full w-full grid grid-cols-1 md:grid-cols-[360px_1fr_360px] gap-3 p-3 bg-black">
-          {panels.map(({ id, component: PanelComponent, title }) => (
-            <SortableItem key={id} id={id} isEditing={isEditing}>
-              <PanelContainer>
-                <TechHeader title={title} />
-                <div className="flex-1 p-3 overflow-hidden">
-                  <PanelComponent user={user} />
-                </div>
-              </PanelContainer>
-            </SortableItem>
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
-  );
+  const motionClasses = {
+    overlay: !prefersReducedMotion ? 'transition-opacity duration-1000' : '',
+    main: !prefersReducedMotion ? 'transition-all duration-700' : '',
+    progressBar: !prefersReducedMotion ? 'transition-all duration-[2000ms] ease-out' : '',
+  };
 
   return (
-    <div className="min-h-screen w-full overflow-hidden overflow-x-hidden bg-black flex flex-col relative font-mono text-tech-white">
+    <div className="h-screen w-full overflow-hidden overflow-x-hidden bg-black flex flex-col relative font-mono text-tech-white">
       <div
         className="absolute inset-0 pointer-events-none z-0"
         style={{ background: "radial-gradient(circle at 50% 30%, #1a1f2e 0%, #000000 70%)" }}
@@ -128,7 +163,7 @@ export default function NomadOpsDashboard() {
       <div className="screen-effects z-50 pointer-events-none" />
 
       <div
-        className={`fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center transition-opacity duration-1000 ${
+        className={`fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center ${motionClasses.overlay} ${
           isBooting ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       >
@@ -143,12 +178,18 @@ export default function NomadOpsDashboard() {
           </div>
           <div className={`flex justify-between ${bootStep >= 3 ? "opacity-100" : "opacity-0"}`}>
             <span className="text-zinc-500">DECRYPTING USER PROFILE...</span>
-            <span className="text-[var(--burnt-orange)] font-bold animate-pulse">COMPLETE</span>
+            <span
+              className={`text-[var(--burnt-orange)] font-bold ${
+                !prefersReducedMotion ? "animate-pulse" : ""
+              }`}
+            >
+              COMPLETE
+            </span>
           </div>
           {bootStep >= 1 && (
             <div className="h-1 bg-zinc-900 mt-4 overflow-hidden">
               <div
-                className="h-full bg-[var(--burnt-orange)] transition-all duration-[2000ms] ease-out"
+                className={`h-full bg-[var(--burnt-orange)] ${motionClasses.progressBar}`}
                 style={{ width: bootStep >= 3 ? "100%" : bootStep >= 2 ? "60%" : "10%" }}
               />
             </div>
@@ -168,14 +209,20 @@ export default function NomadOpsDashboard() {
         onViewModeChange={handleViewModeChange}
         isEditing={isEditing}
         onIsEditingChange={setIsEditing}
+        prefersReducedMotion={prefersReducedMotion}
       />
+      <TickerBanner />
 
-      <div
-        className={`flex-1 flex overflow-hidden relative z-10 transition-all duration-700 ${
+      <main
+        aria-label="Nomad Ops Dashboard"
+        className={`flex-1 flex overflow-hidden relative z-10 ${motionClasses.main} ${
           isBooting ? "blur-sm scale-95 opacity-0" : "blur-0 scale-100 opacity-100"
         } w-full`}
       >
-        <div className="flex-1 relative overflow-hidden bg-black/40 p-4 box-border">
+        <section
+          aria-label="Dashboard View"
+          className="flex-1 relative overflow-hidden bg-black/40 p-4 box-border"
+        >
           <div className="absolute top-2 left-2 w-4 h-4 border-t border-l border-[var(--burnt-orange)] opacity-50" />
           <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-[var(--burnt-orange)] opacity-50" />
           <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-[var(--burnt-orange)] opacity-50" />
@@ -184,10 +231,22 @@ export default function NomadOpsDashboard() {
           <div className="relative h-full w-full">
             {viewMode === "commander" && <CommanderDashboard user={user} />}
             {viewMode === "operator" && <OperatorDashboard user={user} />}
-            {viewMode === "standard" && <StandardDashboard />}
+            {viewMode === "standard" && (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <StandardDashboard 
+                  panels={panels} 
+                  user={user}
+                  isEditing={isEditing} 
+                />
+              </DndContext>
+            )}
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

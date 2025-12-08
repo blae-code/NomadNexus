@@ -55,7 +55,18 @@ Support multiple PTT keys: e.g., SPACE = Squad, ALT = Command, CTRL = Whisper.
 [x] 5.2 "Latch" Mode: Add a "VOX Latch" feature (toggle mute instead of hold-to-talk) for turret gunners who need both hands.
 
 🛠️ STEP 2: EXECUTION LOOP
-Once CODEX_COMMS_PLAN.md is created, proceed to execute the tasks one by one.
+
+PROTOCOL FOR EACH TASK:
+
+Analysis: Determine which LiveKit API methods (setVolume, publishTrack, audioContext) are required.
+
+Implementation: Write clean, documented code. Focus on performance (no UI lag during combat). Ensure tactical-grade error handling and clear UI states for all comms panels.
+
+Verification: Confirm that the feature handles edge cases (e.g., what happens if the Command channel user disconnects while Priority Speaking? What if token fetch or mic permission fails?).
+
+Update: Mark the task as [x] in CODEX_COMMS_PLAN.md. Reference relevant files for error handling and state logic.
+
+BEGIN COMMUNICATIONS GRID CONSTRUCTION. Start by creating the task list.
 
 PROTOCOL FOR EACH TASK:
 

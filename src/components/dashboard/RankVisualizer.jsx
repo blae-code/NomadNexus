@@ -4,11 +4,11 @@ import { ChevronUp, ChevronsUp, Star, Shield, Target, User, Users } from "lucide
 import { RANK_COLORS } from "@/components/utils/rankUtils";
 
 const RANKS = [
-  { name: "Pioneer", icon: Star, ...RANK_COLORS['Pioneer'] },
-  { name: "Founder", icon: ChevronsUp, ...RANK_COLORS['Founder'] },
-  { name: "Voyager", icon: ChevronUp, ...RANK_COLORS['Voyager'] },
-  { name: "Scout", icon: Target, ...RANK_COLORS['Scout'] },
-  { name: "Vagrant", icon: User, ...RANK_COLORS['Vagrant'] },
+  { name: "Pioneer", icon: Star, ...RANK_COLORS['pioneer'] },
+  { name: "Founder", icon: ChevronsUp, ...RANK_COLORS['founder'] },
+  { name: "Voyager", icon: ChevronUp, ...RANK_COLORS['voyager'] },
+  { name: "Scout", icon: Target, ...RANK_COLORS['scout'] },
+  { name: "Vagrant", icon: User, ...RANK_COLORS['vagrant'] },
   // Affiliate is not in the ladder visually usually, but good to have if needed
 ];
 

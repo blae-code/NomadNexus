@@ -10,13 +10,13 @@ export function SortableItem({ id, children, isEditing }) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled: isEditing === false });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: `${CSS.Transform.toString(transform)} scale(${isDragging ? 1.05 : 1})`,
     transition,
     zIndex: isDragging ? 10 : 'auto',
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.9 : 1,
     animation: isEditing && !isDragging ? 'wiggle 0.5s ease-in-out infinite' : 'none',
   };
 

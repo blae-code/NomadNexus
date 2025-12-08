@@ -1,7 +1,7 @@
-import { getStepPath } from '@xyflow/react';
+import { getSmoothStepPath } from '@xyflow/react';
  
 export default function DataStreamEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, markerEnd, data }) {
-  const [edgePath] = getStepPath({
+  const [edgePath] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,

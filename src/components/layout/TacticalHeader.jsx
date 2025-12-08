@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Wifi, AlertTriangle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Wifi, AlertTriangle, Settings, Search } from "lucide-react";
 import { useLiveKit } from "@/hooks/useLiveKit";
-
-import React, { useEffect, useMemo, useState } from "react";
-import { Wifi, AlertTriangle, Settings } from "lucide-react";
-import { useLiveKit } from "@/hooks/useLiveKit";
+import { useQueryClient } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/lib/supabase";
+import CommandPalette from "@/components/layout/CommandPalette";
+import CompactOrgStatusHeader from "@/components/dashboard/CompactOrgStatusHeader";
 
 export default function TacticalHeader({
   user,
@@ -20,116 +20,163 @@ export default function TacticalHeader({
   onViewModeChange,
   isEditing,
   onIsEditingChange,
+  prefersReducedMotion,
+  connectionState: connectionStateProp,
 }) {
-  const { connectionState } = useLiveKit() || {};
-  const [clock, setClock] = useState(utcTime);
-  const [bars, setBars] = useState([8, 12, 16, 12, 10]);
+  const queryClient = useQueryClient();
+  const { connectionState: lkConnectionState } = useLiveKit() || {};
+  const connectionState = connectionStateProp ?? lkConnectionState;
+  const [lclTime, setLclTime] = useState("--:--:--");
+  const [bars, setBars] = useState([]);
+  const [commandOpen, setCommandOpen] = useState(false);
 
   useEffect(() => {
-    setClock(utcTime);
-  }, [utcTime]);
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    setLclTime(formatter.format(new Date()));
+
+    const tick = setInterval(() => {
+      setLclTime(formatter.format(new Date()));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
+    setBars([8, 12, 16, 12, 10]);
+    if (prefersReducedMotion) return;
+    
     const interval = setInterval(() => {
       setBars((prev) => prev.map((h) => Math.max(6, Math.min(18, h + (Math.random() * 6 - 3)))));
     }, 1200);
     return () => clearInterval(interval);
-  }, []);
+  }, [prefersReducedMotion]);
 
-  const funds = useMemo(() => orgCoffer ?? "N/A", [orgCoffer]);
-  const status = deriveStatus(connectionState);
+  const funds = orgCoffer ?? "N/A";
+  const status = deriveStatus(connectionState, lkConnectionState?.error);
+
+  const handleLogout = async () => {
+    try {
+      const isGuest = !!user?.is_guest;
+      
+      // Clear all React Query caches before logout
+      queryClient.clear();
+      
+      await supabase.auth.signOut();
+      if (isGuest) {
+        window.alert("Guest session terminated. To preserve intel, convert to a permanent Service Record now.");
+        window.location.href = "/login?upgrade=guest";
+      } else {
+        window.location.href = "/login";
+      }
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  };
 
   return (
-    <div className="relative z-20 bg-[var(--gunmetal)] border-b-4 border-[var(--burnt-orange)] shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
-      <div className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-transparent via-[var(--burnt-orange)] to-transparent animate-[pulse_3s_ease-in-out_infinite]" />
-      <div className="grid grid-cols-[320px_1fr_320px] gap-6 px-8 py-6 items-stretch">
-        <div className="flex items-center gap-5">
-          <div className="h-20 w-20 bg-[var(--burnt-orange)] text-black font-black text-5xl flex items-center justify-center shadow-[inset_0_0_0_2px_#000]">
-            NX
-          </div>
-          <div className="space-y-1">
-            <div className="label-plate px-3 py-1 w-fit">Nomad Nexus Tactical</div>
-            <div className="text-4xl leading-none font-black tracking-[0.24em] text-white">Operations Deck</div>
-            <div className="text-sm text-amber-300 tracking-[0.18em]">High Contrast Command Surface</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-4 gap-2 items-center">
-          <Telemetry label="SYS" value="ONLINE" tone="tech" />
-          <Telemetry label="LAT" value={`${latencyMs}ms`} tone="amber" />
-          <Telemetry label="DEFCON" value="5" tone="green" />
-          <Telemetry label="UTC" value={clock} tone="burnt" />
-        </div>
-
-        <div className="flex items-center justify-end gap-3">
-          <ConnectionDiode status={status} />
-          <div className="text-right leading-tight">
-            <div className="label-plate px-2 py-1">Operator</div>
-            <div className="text-2xl text-white font-black tracking-[0.2em] truncate max-w-[240px]">
-              {user?.callsign || user?.email || "Guest"}
-            </div>
-            <div className="text-[var(--burnt-orange)] font-black text-xl tracking-[0.2em]">
-              {user?.rank ? String(user.rank).toUpperCase() : "VAGRANT"}
-            </div>
-          </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={onToggleWallet}
-              className="data-cell px-4 py-3 uppercase tracking-[0.24em] border-[var(--burnt-orange)] text-amber-300"
-            >
-              <span>Wallet</span>
-              <span className="text-white font-black">{formatCredits(walletBalance)}</span>
-            </button>
-            {walletOpen && (
-              <div className="absolute right-0 top-full mt-2 min-w-[260px] bg-black border border-[var(--burnt-orange)] p-4 space-y-2">
-                <div className="label-plate px-2 py-1">Org Coffer</div>
-                <div className="data-cell px-3 py-2">
-                  <span>Reserve</span>
-                  <span className="text-emerald-400 font-black">{formatCredits(orgCoffer)}</span>
-                </div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-amber-400">Click outside to close</div>
+    <>
+      <header className="shrink-0 border-b-4 border-[var(--burnt-orange)] bg-gradient-to-r from-black via-[#18181b] to-black flex flex-col z-50 relative shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
+        <div className="flex items-center px-6 py-3 justify-between gap-4">
+          {/* Logo Section */}
+          <div className="flex items-center gap-4 min-w-[225px]">
+            <a href="/NomadOpsDashboard" className="flex items-center gap-4 group cursor-pointer">
+              <div className="w-9 h-9 bg-[var(--burnt-orange)] flex items-center justify-center group-hover:bg-[#c2410c] transition-colors shadow-[inset_0_0_0_2px_#000]">
+                <span className="font-black text-black text-lg tracking-widest select-none">NX</span>
               </div>
-            )}
+              <div className="flex flex-col justify-center leading-none">
+                <h1 className="text-[18px] font-black uppercase tracking-[0.18em] text-white group-hover:text-[var(--burnt-orange)] transition-colors drop-shadow-[0_1px_4px_rgba(234,88,12,0.2)]">REDSCAR</h1>
+                <span className="text-[10px] font-mono text-zinc-400 tracking-[0.28em]">NOMAD OPS</span>
+              </div>
+            </a>
           </div>
-        </div>
-      </div>
 
-      <div className="border-t border-zinc-800 bg-black/70 px-8 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-zinc-300">
-          <div className="label-plate px-2 py-1">Mode Rail</div>
-          <div className="flex items-center divide-x divide-zinc-800 border border-[var(--burnt-orange)]">
-            {[
-              { id: "standard", label: "Standard" },
-              { id: "operator", label: "Operator" },
-              { id: "commander", label: "Command" },
-            ].map((mode) => (
-              <button
-                key={mode.id}
-                onClick={() => onViewModeChange?.(mode.id)}
-                className={`px-4 py-2 font-black tracking-[0.18em] uppercase transition-all ${
-                  viewMode === mode.id
-                    ? "bg-[var(--burnt-orange)] text-black"
-                    : "text-white bg-[#0b0f12] hover:text-amber-300"
-                }`}
-                type="button"
-              >
-                {mode.label}
-              </button>
-            ))}
+          {/* Centered Command Palette Trigger */}
+          <div className="flex-1 flex items-center justify-center">
+            <button
+              className="flex items-center gap-2 px-4 py-2 rounded bg-zinc-900 border border-zinc-800 hover:border-[var(--burnt-orange)] text-amber-200 hover:text-amber-300 shadow focus:outline-none focus:ring-2 focus:ring-[var(--burnt-orange)] transition-colors font-mono text-base"
+              title="Open Command Palette (Ctrl+K)"
+              onClick={() => setCommandOpen(true)}
+            >
+              <Search className="w-5 h-5" />
+              <span className="hidden md:inline font-mono text-base">Command Palette</span>
+              <kbd className="ml-3 px-2 py-1 rounded bg-zinc-800 text-xs text-zinc-300 border border-zinc-700">Ctrl+K</kbd>
+            </button>
           </div>
-          <div className="flex items-center space-x-2">
-            <Settings className="w-5 h-5 text-zinc-500" />
-            <Label htmlFor="edit-mode-toggle" className="text-xs font-bold uppercase tracking-wider">Configure Layout</Label>
-            <Switch id="edit-mode-toggle" checked={isEditing} onCheckedChange={onIsEditingChange} />
+
+          {/* Time Tracker & Profile */}
+          <div className="flex items-center gap-4 justify-end min-w-fit">
+            {typeof window !== "undefined" && window.NetworkStatusIndicator ? <window.NetworkStatusIndicator /> : null}
+
+            <div className="flex flex-col items-end leading-tight gap-1">
+              <div className="flex items-center gap-2 text-[13px] font-black text-zinc-200">
+                <span className="w-5 h-5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                {lclTime} <span className="text-[10px] text-zinc-500 ml-2">LCL</span>
+              </div>
+              <div className="text-[11px] font-mono text-zinc-400">
+                {utcTime} <span className="text-zinc-600 ml-2">UTC</span>
+              </div>
+            </div>
+            
+            <div className="h-7 w-[1px] bg-zinc-800 mx-2" />
+
+            <div className="flex items-center gap-3 relative">
+              <a href="/Profile" className="group flex items-center gap-3 cursor-pointer hover:bg-zinc-900 px-3 py-1 transition-colors rounded border border-zinc-800 min-w-[200px] max-w-[320px] overflow-hidden">
+                <div className="flex flex-col justify-center w-full overflow-hidden">
+                  <div className="flex flex-row items-center gap-2 w-full">
+                    <span className="text-[13px] font-black text-zinc-200 group-hover:text-white truncate max-w-[140px]">
+                      {user ? (user.role === 'admin' ? "SYSTEM ADMIN" : (user.callsign || user.rsi_handle || "OPERATIVE")) : "GUEST"}
+                    </span>
+                    <span className="text-[9px] font-mono uppercase tracking-wider group-hover:text-white transition-colors px-1 py-0 rounded bg-[var(--burnt-orange)] text-black font-black whitespace-nowrap">{user?.rank || "VAGRANT"}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[12px] font-mono text-amber-300 group-hover:text-amber-200 cursor-pointer truncate max-w-[200px] mt-1"
+                    onClick={onToggleWallet}
+                    title="Show wallet & coffer overview">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block align-middle mr-0.5 flex-shrink-0"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3h-8a2 2 0 0 0-2 2v2"/><circle cx="18" cy="13" r="2"/></svg>
+                    <span className="font-bold tabular-nums select-all truncate">{formatCredits(walletBalance)}</span>
+                    <span className="ml-1 text-[11px] text-zinc-400 font-bold">aUEC</span>
+                  </div>
+                </div>
+                <div className="w-8 h-8 bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-[var(--burnt-orange)] transition-colors rounded-full flex-shrink-0 self-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a7.5 7.5 0 0 1 13 0"/></svg>
+                </div>
+              </a>
+              {/* Wallet popover remains, but is triggered by clicking the wallet balance in the profile box */}
+              {walletOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-gradient-to-br from-black via-zinc-900 to-black border-2 border-[var(--burnt-orange)] shadow-2xl p-5 font-mono text-[13px] text-zinc-200 z-50 rounded-lg animate-fade-in">
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-zinc-800">
+                    <span className="text-zinc-400 uppercase tracking-[0.18em] font-bold text-[11px]">Org Coffer</span>
+                    <span className="text-emerald-400 font-black text-[14px]">{formatCredits(orgCoffer)}</span>
+                  </div>
+                  <div className="mt-2 text-[11px] text-zinc-400">
+                    Includes pooled Redscar funds.<br />Visit <span className="text-amber-300 font-bold">Treasury</span> for full breakdown.
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-amber-300 font-bold text-[12px]">aUEC</span>
+                    <span className="text-white font-black text-[14px]">{formatCredits(walletBalance)}</span>
+                  </div>
+                </div>
+              )}
+              {/* ESC-style Exit button */}
+              <kbd
+                className="ml-3 px-2 py-1 rounded bg-zinc-800 text-xs text-zinc-300 border border-zinc-700 cursor-pointer hover:text-amber-400 transition-colors font-mono select-none"
+                title="Logout (ESC)"
+                onClick={handleLogout}
+              >ESC</kbd>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[10px] text-zinc-400 uppercase tracking-[0.2em]">
-          <span className="data-cell px-3 py-1">Live Ops Rail</span>
-          <SignalMeter bars={bars} />
+
+        {/* Embedded org/status strip */}
+        <div className="border-t border-zinc-900/60 bg-black/40">
+          <CompactOrgStatusHeader />
         </div>
-      </div>
-    </div>
+      </header>
+      <CommandPalette open={commandOpen} onClose={setCommandOpen} />
+    </>
   );
 }
 
@@ -150,12 +197,12 @@ function Telemetry({ label, value, tone = "tech" }) {
   );
 }
 
-function ConnectionDiode({ status }) {
+function ConnectionDiode({ status, prefersReducedMotion }) {
   const { color, label } = status;
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`w-5 h-5 border-2 ${color.border} ${color.bg} shadow-[0_0_12px_rgba(0,0,0,0.6)] animate-[spin_8s_linear_infinite]`}
+        className={`w-5 h-5 border-2 ${color.border} ${color.bg} shadow-[0_0_12px_rgba(0,0,0,0.6)] ${!prefersReducedMotion && 'animate-[spin_8s_linear_infinite]'}`}
         style={{ boxShadow: `inset 0 0 0 2px #000, 0 0 12px ${color.glow}` }}
       />
       <div className="text-xs font-black uppercase tracking-[0.2em] text-white flex items-center gap-1">

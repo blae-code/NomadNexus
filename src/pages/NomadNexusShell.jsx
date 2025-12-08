@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
   Radio,
@@ -7,6 +7,10 @@ import {
   Activity,
   Terminal,
   LogOut,
+  AlertCircle,
+  RefreshCw,
+  Clock3,
+  Zap,
 } from 'lucide-react';
 
 const GRID_STYLES = 'border border-[#1e293b] bg-[#0b0f12] relative overflow-hidden';
@@ -56,6 +60,24 @@ const AlertItem = ({ level, msg }) => {
 };
 
 export default function NomadNexusShell() {
+  const [lastSweep, setLastSweep] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setLastSweep(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTime = (date) => {
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      }).format(date);
+    } catch (err) {
+      return '--:--:--';
+    }
+  };
+
   return (
     <div className="h-screen w-screen bg-black text-gray-400 font-mono flex flex-col overflow-hidden selection:bg-[#cc5500] selection:text-black">
       <header className="h-16 flex items-center justify-between px-4 border-b border-[#334155] bg-[#0f172a]">
@@ -110,10 +132,42 @@ export default function NomadNexusShell() {
               </div>
             </div>
 
-            <div className={`${GRID_STYLES} h-64 flex flex-col items-center justify-center border-dashed border-gray-700`}>
-              <Terminal className="text-[#cc5500] mb-4 h-12 w-12 opacity-50" />
-              <h3 className="text-xl text-[#cc5500] tracking-widest">SIGNAL LOST</h3>
-              <p className="text-xs mt-2 text-gray-500">LONG RANGE SCANNERS CLEAR // WAITING FOR INPUT</p>
+            <div className={`${GRID_STYLES} h-64 border border-[#334155] bg-black/60 p-4 flex flex-col gap-3`}>
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-full border border-orange-800 bg-orange-900/20 flex items-center justify-center text-orange-400">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-mono uppercase text-orange-500 tracking-[0.18em]">Status Alert</div>
+                  <div className="font-black text-white leading-snug text-xl">No signals detected in current operation window.</div>
+                  <div className="text-xs text-orange-200/80 mt-1">Long-range scanners are clear; awaiting new tasking.</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <StatusTile icon={<Clock3 className="w-4 h-4" />} label="Last Sweep" value={formatTime(lastSweep)} tone="amber" />
+                <StatusTile icon={<Radio className="w-4 h-4" />} label="Sweep Integrity" value="99.4%" tone="green" />
+                <StatusTile icon={<ShieldCheck className="w-4 h-4" />} label="Noise Floor" value="Nominal" tone="cool" />
+                <StatusTile icon={<Zap className="w-4 h-4" />} label="Priority Tasks" value="None queued" tone="muted" />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLastSweep(new Date())}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#cc5500] text-black font-bold text-xs uppercase tracking-wide border border-[#cc5500] hover:bg-[#e36414] transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh Sweep
+                </button>
+                <a
+                  href="/Events"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-zinc-900 text-orange-200 font-bold text-xs uppercase tracking-wide border border-orange-800 hover:border-orange-500 hover:text-orange-100 transition-colors"
+                >
+                  <Terminal className="w-4 h-4" />
+                  View Ops
+                </a>
+              </div>
             </div>
           </div>
         </main>
@@ -155,6 +209,28 @@ export default function NomadNexusShell() {
         <span>/// ALERT: ETERNAL VOYAGE PROTOCOL ACTIVE ///</span>
         <span className="tracking-widest">BUILD: NEXUS V1.0 // SECURE CONNECTION</span>
       </footer>
+    </div>
+  );
+}
+
+function StatusTile({ icon, label, value, tone = 'muted' }) {
+  const toneClass = tone === 'green'
+    ? 'text-emerald-300 border-emerald-900/70 bg-emerald-950/40'
+    : tone === 'amber'
+    ? 'text-amber-300 border-amber-900/70 bg-amber-950/40'
+    : tone === 'cool'
+    ? 'text-cyan-200 border-cyan-900/70 bg-cyan-950/40'
+    : 'text-zinc-300 border-zinc-800 bg-zinc-950/40';
+
+  return (
+    <div className={`border px-3 py-2 flex items-center gap-2 text-xs font-mono ${toneClass}`}>
+      <span className="text-sm" aria-hidden>
+        {icon}
+      </span>
+      <div className="flex flex-col leading-tight">
+        <span className="text-[9px] uppercase text-zinc-500 tracking-[0.14em]">{label}</span>
+        <span className="text-sm font-bold text-white">{value}</span>
+      </div>
     </div>
   );
 }

@@ -1,11 +1,14 @@
 import React from "react";
-import { Activity, Wifi } from "lucide-react";
+import { Activity, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLiveKit } from "@/hooks/useLiveKit";
 
 export default function CurrentStatusHeader({ user }) {
   const role = user?.role_tags?.[0] || user?.rank || "OPERATIVE";
-  // Mocking connection status
-  const isConnected = true; 
+  const { room } = useLiveKit();
+  
+  // Real connection status from LiveKit
+  const isConnected = room?.isConnected || false; 
 
   return (
     <div className="flex flex-col items-center justify-center py-6 space-y-2 border-b border-zinc-800/50 mb-4">
@@ -22,8 +25,17 @@ export default function CurrentStatusHeader({ user }) {
           "flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-mono uppercase tracking-wider",
           isConnected ? "border-emerald-900/50 bg-emerald-950/10 text-emerald-500" : "border-zinc-800 bg-zinc-900 text-zinc-500"
        )}>
-          <Wifi className="w-3 h-3" />
-          {isConnected ? "COMM ARRAY UPLINK ACTIVE" : "OFFLINE"}
+          {isConnected ? (
+            <>
+              <Wifi className="w-3 h-3" />
+              COMM ARRAY UPLINK ACTIVE
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3 h-3" />
+              OFFLINE
+            </>
+          )}
        </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 type UseLiveKitTokenResult = {
   token: string | null;
+  serverUrl: string | null;
   error: string | null;
   isLoading: boolean;
 };
@@ -10,6 +11,7 @@ type UseLiveKitTokenResult = {
 export const useLiveKitToken = (roomName: string | null, participantName: string | null, identity?: string, role?: string): UseLiveKitTokenResult => {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -30,12 +32,13 @@ export const useLiveKitToken = (roomName: string | null, participantName: string
 
         if (fnError) throw fnError;
 
-        if (data?.token) {
-          setToken(data.token);
-          console.log('[NomadLink] Secure Uplink Established.');
-        } else {
-          throw new Error('Token missing in response');
-        }
+        if (!data?.token) throw new Error('Token missing in response');
+
+        setToken(data.token);
+        const suppliedUrl = data.serverUrl || data.url || data.livekitUrl;
+        const fallbackUrl = import.meta.env?.VITE_LIVEKIT_URL || null;
+        setServerUrl(suppliedUrl || fallbackUrl);
+        console.log('[NomadLink] Secure Uplink Established.');
       } catch (err: any) {
         console.error('Failed to fetch LiveKit token', err);
         setError(err?.message || 'Unknown error');
@@ -47,7 +50,7 @@ export const useLiveKitToken = (roomName: string | null, participantName: string
     fetchToken();
   }, [roomName, participantName, identity, role]);
 
-  return { token, error, isLoading };
+  return { token, serverUrl, error, isLoading };
 };
 
 export default useLiveKitToken;

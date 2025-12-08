@@ -1,69 +1,67 @@
 import React from 'react';
 import TacticalMap from '@/components/ops/TacticalMap';
 import EventProjectionPanel from '@/components/dashboard/EventProjectionPanel';
-import StatusAlertsWidget from '@/components/dashboard/StatusAlertsWidget';
-import OrgStatusWidget from '@/components/dashboard/OrgStatusWidget';
-import { Shield, Target, Users, Activity } from 'lucide-react';
+import CommsDashboardPanel from '@/components/comms/CommsDashboardPanel';
+import CommsAccessPanel from '@/components/comms/CommsAccessPanel';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function CommanderDashboard({ user }) {
+  const [selectedEventId, setSelectedEventId] = React.useState(null);
+  const [showCommsAccessPanel, setShowCommsAccessPanel] = React.useState(false);
+
   return (
-    <div className="h-full w-full grid grid-cols-12 grid-rows-12 gap-4 p-4">
-      
-      {/* Top Bar: High Level Stats */}
-      <div className="col-span-12 row-span-1 grid grid-cols-4 gap-4">
-         <div className="bg-zinc-900/50 border border-zinc-800 p-3 flex items-center gap-3">
-            <Shield className="w-5 h-5 text-emerald-500" />
-            <div>
-               <div className="text-[10px] text-zinc-500 uppercase">Defcon Level</div>
-               <div className="text-lg font-bold text-white leading-none">5 (NORMAL)</div>
-            </div>
-         </div>
-         <div className="bg-zinc-900/50 border border-zinc-800 p-3 flex items-center gap-3">
-            <Target className="w-5 h-5 text-amber-500" />
-            <div>
-               <div className="text-[10px] text-zinc-500 uppercase">Active Ops</div>
-               <div className="text-lg font-bold text-white leading-none">3 DEPLOYED</div>
-            </div>
-         </div>
-         <div className="bg-zinc-900/50 border border-zinc-800 p-3 flex items-center gap-3">
-            <Users className="w-5 h-5 text-blue-500" />
-            <div>
-               <div className="text-[10px] text-zinc-500 uppercase">Personnel</div>
-               <div className="text-lg font-bold text-white leading-none">12 ONLINE</div>
-            </div>
-         </div>
-         <div className="bg-zinc-900/50 border border-zinc-800 p-3 flex items-center gap-3">
-            <Activity className="w-5 h-5 text-red-500" />
-            <div>
-               <div className="text-[10px] text-zinc-500 uppercase">Threats</div>
-               <div className="text-lg font-bold text-white leading-none">NONE</div>
-            </div>
-         </div>
-      </div>
+    <div className="h-full w-full flex flex-col">
+      {/* Main Content: Two-Column Layout */}
+      <div className="flex-1 flex gap-3 p-3 min-h-0 overflow-hidden">
+        {/* LEFT COLUMN: Event Projection (top) + Tactical Map (bottom) - Split Vertically */}
+        <div className="flex-[2] flex flex-col gap-3 min-h-0 min-w-0">
+          {/* Top: Event Projection / Ops Dashboard */}
+          <div className="flex-1 border border-zinc-800/50 bg-black/40 overflow-hidden rounded-lg min-h-0">
+            <EventProjectionPanel 
+              user={user}
+              onEventSelect={setSelectedEventId}
+              selectedEventId={selectedEventId}
+              compact={true}
+            />
+          </div>
 
-      {/* Main Tactical Map */}
-      <div className="col-span-12 md:col-span-8 row-span-7 md:row-span-8 relative">
-         <div className="absolute top-0 left-0 bg-emerald-900/20 text-emerald-500 text-[10px] font-bold px-2 py-1 z-10 border-b border-r border-emerald-900/50">
-            TACTICAL COMMAND INTERFACE
-         </div>
-         <TacticalMap className="w-full h-full" />
-      </div>
+          {/* Bottom: Tactical Map */}
+          <div className="flex-1 relative border border-zinc-800/50 bg-black/40 flex flex-col min-w-0 overflow-hidden rounded-lg min-h-0">
+            <div className="absolute top-2 left-2 bg-emerald-900/20 text-emerald-500 text-[10px] font-bold px-2 py-1 z-10 border-b border-r border-emerald-900/50 rounded-sm">
+              TACTICAL COMMAND INTERFACE
+            </div>
+            <TacticalMap className="w-full h-full" />
+          </div>
+        </div>
 
-      {/* Right Column: Status & Alerts */}
-      <div className="col-span-12 md:col-span-4 row-span-11 flex flex-col gap-4">
-         <div className="h-1/3">
-            <OrgStatusWidget />
-         </div>
-         <div className="flex-1">
-            <StatusAlertsWidget />
-         </div>
-      </div>
+        {/* RIGHT COLUMN: Comms Dashboard - 1/3 width of available space */}
+        <div className="flex-[1] flex flex-col min-h-0 min-w-[320px] max-w-[640px] relative">
+          {/* Comms Panel - Full height with proper constraints */}
+          <div className="flex-1 border border-zinc-800/50 bg-black/40 overflow-hidden rounded-lg flex flex-col min-h-0">
+            <CommsDashboardPanel user={user} eventId={selectedEventId} className="h-full" />
+          </div>
 
-      {/* Bottom Row: Events Timeline */}
-      <div className="col-span-12 md:col-span-8 row-span-4 md:row-span-3">
-         <EventProjectionPanel user={user} />
-      </div>
+          {/* Collapse/Expand Button for Access Panel */}
+          <button
+            onClick={() => setShowCommsAccessPanel(!showCommsAccessPanel)}
+            className="absolute -right-12 top-1/2 -translate-y-1/2 p-1.5 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700 rounded-r transition-all z-10"
+            title={showCommsAccessPanel ? 'Hide access panel' : 'Show access panel'}
+          >
+            {showCommsAccessPanel ? (
+              <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+            ) : (
+              <ChevronLeft className="w-3.5 h-3.5 text-zinc-400" />
+            )}
+          </button>
+        </div>
 
+        {/* FAR RIGHT: Comms Access Panel (Collapsible) */}
+        {showCommsAccessPanel && (
+          <div className="w-80 border border-zinc-800/50 overflow-hidden shrink-0 flex flex-col min-h-0 rounded-lg animate-in slide-in-from-right-96 duration-300">
+            <CommsAccessPanel user={user} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

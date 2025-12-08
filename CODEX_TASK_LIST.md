@@ -1,3 +1,5 @@
+[x] 2.3 Header Status (src/components/layout/TacticalHeader.jsx): Add a live Connection Status indicator (Green Diode = Connected, Amber Flash = Connecting, Red Ring = Disconnected, Error = Red Diode).
+[x] 3.1 Active Net Logic (src/components/comms/ActiveNetPanel.jsx): Refactor to use useParticipants(), add tactical-grade error and state handling.
 PHASE 1: VISUAL SUPREMACY (High Contrast)
 
 [x] 1.1 Global Styles (src/index.css): Define .label-plate (font-black, uppercase, bg-burnt-orange, text-black) and .data-cell (border-zinc-800, bg-black, inner-shadow). Add a .scanline-overlay utility.

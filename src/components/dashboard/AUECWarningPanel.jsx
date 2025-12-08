@@ -1,34 +1,34 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabaseApi } from "@/lib/supabaseApi";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Wallet, AlertTriangle } from "lucide-react";
 
 export default function AUECWarningPanel() {
-  const { data: coffers = [] } = useQuery({
-    queryKey: ['coffers-warning'],
-    queryFn: () => supabaseApi.entities.Coffer.list({ limit: 5 })
+  // Fetch coffer transactions to calculate total balance
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['coffer-transactions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('coffer_transactions')
+        .select('amount')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (error) {
+        console.warn('Failed to fetch transactions:', error);
+        return [];
+      }
+      return data || [];
+    }
   });
 
   const totalBalance = React.useMemo(() => {
-    // Assuming Coffer entity has a balance or we calculate it from transactions
-    // Since Coffer entity definition in context doesn't have 'balance', 
-    // I'll assume we need to fetch transactions or there's a computed field I missed.
-    // Wait, the entity definition for Coffer doesn't show balance. 
-    // Usually Coffer would have a balance field or we sum transactions.
-    // For the sake of this UI task, I will assume we display a mock balance 
-    // or if I can't calculate it, I'll use a placeholder value.
-    // Let's assume for now we can't easily calc sum of all transactions without backend func.
-    // I'll mock it or use a random logic for 'Low' status based on a made up prop if needed.
-    // Actually, I'll check CofferTransaction.
-    return 150000; // Placeholder for visual as I can't sum all txs easily on frontend efficiently
-  }, [coffers]);
+    // Sum all transaction amounts to get current balance
+    return transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+  }, [transactions]);
 
   // Logic: Low if < 50000
   const isLow = totalBalance < 50000;
-  // For demo purposes, let's force it to be low if there are no coffers or some condition
-  // or just random for the "Low" visual request if needed. 
-  // I'll stick to standard display logic.
 
   if (isLow) {
     return (

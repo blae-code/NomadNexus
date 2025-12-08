@@ -1,20 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 import ShipVoice from '@/api/ShipVoice';
 import { useLiveKit } from '@/hooks/useLiveKit';
-
-const initialSlots = [
-  { id: 'red-pilot', name: 'Pilot - Cutlass Red', requires: 'MEDICAL_CERT', doctrine: 'Rescue', occupied: null },
-  { id: 'red-copilot', name: 'Co-Pilot - Cutlass Red', requires: 'NAV_CERT', doctrine: 'Rescue', occupied: null },
-  { id: 'red-turret', name: 'Turret - Cutlass Red', requires: 'COMBAT_CERT', doctrine: 'Rescue', occupied: null },
-  { id: 'hammer-pilot', name: 'Pilot - Hammerhead', requires: 'HEAVY_CERT', doctrine: 'Defense', occupied: null },
-  { id: 'hammer-tac', name: 'Tactical - Hammerhead', requires: 'RANGER_CERT', doctrine: 'Defense', occupied: 'User_01' },
-  { id: 'hammer-engineer', name: 'Engineer - Hammerhead', requires: 'ENGINEERING_CERT', doctrine: 'Defense', occupied: null },
-];
+import { Loader2 } from 'lucide-react';
 
 const doctrineColors = {
   Rescue: 'border-amber-500 text-amber-200',
   Defense: 'border-burnt-orange text-burnt-orange',
+  Industry: 'border-teal-500 text-teal-200',
 };
 
 const requirementLabels = {
@@ -34,6 +29,7 @@ const SparkToken = ({ user }) => (
 );
 
 const ShipSlot = ({ slot, isHovering, rejected }) => {
+  const occupied = slot.occupant_user_id ? true : false;
   const doctrineClass = doctrineColors[slot.doctrine] || 'border-burnt-orange text-tech-white';
   return (
     <motion.div
@@ -43,15 +39,15 @@ const ShipSlot = ({ slot, isHovering, rejected }) => {
     >
       <div className="flex items-center justify-between text-xs font-mono text-tech-white">
         <span className="tracking-widest">{slot.name}</span>
-        <span className={`px-2 py-1 border ${slot.occupied ? 'border-red-700 text-red-300' : 'border-amber-700 text-amber-300'}`}>
-          {slot.occupied ? 'SEALED' : 'OPEN'}
+        <span className={`px-2 py-1 border ${occupied ? 'border-red-700 text-red-300' : 'border-amber-700 text-amber-300'}`}>
+          {occupied ? 'SEALED' : 'OPEN'}
         </span>
       </div>
       <div className="text-[10px] text-tech-white/70 font-mono">
-        {slot.requires ? `REQ: ${requirementLabels[slot.requires] || slot.requires}` : 'REQ: NONE'}
+        {slot.requires_cert ? `REQ: ${requirementLabels[slot.requires_cert] || slot.requires_cert}` : 'REQ: NONE'}
       </div>
       <div className="text-xs font-bold text-tech-white">
-        {slot.occupied ? `OCCUPIED BY ${slot.occupied}` : isHovering ? 'ALIGNING HARDPOINT...' : 'READY FOR BOARDING'}
+        {occupied ? `OCCUPIED` : isHovering ? 'ALIGNING HARDPOINT...' : 'READY FOR BOARDING'}
       </div>
       {rejected && (
         <div className="absolute inset-0 bg-red-900/30 border border-[#8a0303] text-[#8a0303] text-center text-xs font-black flex items-center justify-center tracking-[0.25em]">
@@ -63,12 +59,33 @@ const ShipSlot = ({ slot, isHovering, rejected }) => {
 };
 
 const HangarDeck = ({ user }) => {
+    // Fetch hangar slots from database
+    const { data: slots = [], isLoading: slotsLoading } = useQuery({
+      queryKey: ['hangar-slots'],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('hangar_slots')
+          .select('*')
+          .order('doctrine');
+        if (error) {
+          console.error('Failed to fetch hangar slots:', error);
+          // Return fallback slots if fetch fails
+          return [
+            { id: 'red-pilot', name: 'Pilot - Cutlass Red', requires_cert: 'MEDICAL_CERT', doctrine: 'Rescue', occupant_user_id: null },
+            { id: 'red-copilot', name: 'Co-Pilot - Cutlass Red', requires_cert: 'NAV_CERT', doctrine: 'Rescue', occupant_user_id: null },
+            { id: 'red-turret', name: 'Turret - Cutlass Red', requires_cert: 'COMBAT_CERT', doctrine: 'Rescue', occupant_user_id: null },
+          ];
+        }
+        return data || [];
+      },
+      refetchInterval: 5000,
+    });
+
   const { publishData, dataFeed } = useLiveKit();
-  const [slots, setSlots] = useState(initialSlots);
   const [hoverSlot, setHoverSlot] = useState(null);
   const [rejectedSlot, setRejectedSlot] = useState(null);
   const [log, setLog] = useState([
-    "Hangar Deck primed. Drag your Spark onto a slot.",
+    "Hangar Deck primed. Slots loading...",
   ]);
   const riggsyVoice = useRef(null);
 
@@ -91,16 +108,16 @@ const HangarDeck = ({ user }) => {
   const handleDrop = (slotId) => {
     const slot = slots.find(s => s.id === slotId);
     if (!slot) return;
-    if (slot.occupied) {
+    if (slot.occupant_user_id) {
       addLog(`Riggsy: Slot ${slot.name} already sealed.`);
       riggsyVoice.current?.announce(`Slot ${slot.name} already sealed.`);
       return;
     }
-    const hasCert = !slot.requires || userCerts.includes(slot.requires);
+    const hasCert = !slot.requires_cert || userCerts.includes(slot.requires_cert);
     if (!hasCert) {
       setRejectedSlot(slotId);
-      addLog(`Riggsy: ${slot.name} rejects. Missing ${requirementLabels[slot.requires] || slot.requires}.`);
-      riggsyVoice.current?.announce(`Access denied. ${slot.name} requires ${requirementLabels[slot.requires] || slot.requires}.`, 0.9, 0.9);
+      addLog(`Riggsy: ${slot.name} rejects. Missing ${requirementLabels[slot.requires_cert] || slot.requires_cert}.`);
+      riggsyVoice.current?.announce(`Access denied. ${slot.name} requires ${requirementLabels[slot.requires_cert] || slot.requires_cert}.`, 0.9, 0.9);
       setTimeout(() => setRejectedSlot(null), 800);
       return;
     }

@@ -47,7 +47,7 @@ export default function AIInsightsPanel({ eventId, compact = false }) {
     }
   });
 
-  const canTrigger = hasMinRank(currentUser, 'Scout');
+  const canTrigger = hasMinRank(currentUser, 'scout');
 
   // Get *all* recent findings per agent (last 3 for example)
   const recentFindings = React.useMemo(() => {

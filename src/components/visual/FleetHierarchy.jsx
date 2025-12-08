@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNodesState, useEdgesState } from '@xyflow/react';
 import { supabase } from '@/lib/supabase';
@@ -71,9 +71,12 @@ const FleetHierarchy = () => {
   const { data: squads = [], isLoading: isLoadingSquads } = useQuery({
     queryKey: ['squads'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('squads').select(`*, leader:profiles!squads_leader_id_fkey(*)`);
-      if (error) throw new Error('Failed to fetch squads');
-      return data;
+      const { data, error } = await supabase.from('squads').select('*');
+      if (error) {
+        console.warn('Failed to fetch squads:', error);
+        return [];
+      }
+      return data || [];
     },
   });
 
@@ -89,9 +92,12 @@ const FleetHierarchy = () => {
   const { data: playerStatus = [], isLoading: isLoadingPlayerStatus } = useQuery({
     queryKey: ['player_status'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('player_status').select(`*, profile:profiles(*)`);
-      if (error) throw new Error('Failed to fetch player status');
-      return data;
+      const { data, error } = await supabase.from('player_status').select('*');
+      if (error) {
+        console.warn('Failed to fetch player status:', error);
+        return [];
+      }
+      return data || [];
     },
   });
   
@@ -112,19 +118,19 @@ const FleetHierarchy = () => {
     }
   });
 
-  useMemo(() => {
+  const { initialNodes, initialEdges } = useMemo(() => {
     if (isLoadingProfiles || isLoadingSquads || isLoadingPlayerStatus || isLoadingRoles) {
-      return;
+      return { initialNodes: [], initialEdges: [] };
     }
     
     const commanderRole = roles.find(r => r.name === 'Commander' || r.name === 'Tactical Command');
     const commander = profiles.find(p => p.role === commanderRole?.id) || profiles[0];
     
-    const initialNodes = [];
-    const initialEdges = [];
+    const constructedNodes = [];
+    const constructedEdges = [];
 
     if (commander) {
-      initialNodes.push({
+      constructedNodes.push({
         id: commander.id,
         type: 'tactical',
         data: { label: commander.callsign || 'Commander', sublabel: 'COMMAND', status: 'active', type: 'commander' },
@@ -134,14 +140,14 @@ const FleetHierarchy = () => {
 
     squads.forEach((squad) => {
       if (squad.leader) {
-        initialNodes.push({
+        constructedNodes.push({
           id: squad.id,
           type: 'tactical',
           data: { label: squad.name, sublabel: `Leader: ${squad.leader.callsign}`, status: 'active', type: 'squad' },
         });
 
         if (commander) {
-            initialEdges.push({ id: `e-${commander.id}-${squad.id}`, source: commander.id, target: squad.id, type: 'dataStream', data: { type: 'command' } });
+            constructedEdges.push({ id: `e-${commander.id}-${squad.id}`, source: commander.id, target: squad.id, type: 'dataStream', data: { type: 'command' } });
         }
       }
     });
@@ -150,25 +156,30 @@ const FleetHierarchy = () => {
         if (ps.profile && ps.assigned_squad_id) {
             const squad = squads.find(s => s.id === ps.assigned_squad_id);
             if (squad) {
-                initialNodes.push({
+                constructedNodes.push({
                     id: ps.profile.id,
                     type: 'tactical',
                     data: { label: ps.profile.callsign, sublabel: 'Member', status: 'active', type: 'member' },
                     draggable: true,
                 });
-                initialEdges.push({ id: `e-${squad.id}-${ps.profile.id}`, source: squad.id, target: ps.profile.id, type: 'dataStream', data: { type: 'squad' } });
+                constructedEdges.push({ id: `e-${squad.id}-${ps.profile.id}`, source: squad.id, target: ps.profile.id, type: 'dataStream', data: { type: 'squad' } });
             }
         }
     });
 
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      initialNodes,
-      initialEdges
-    );
+    return { initialNodes: constructedNodes, initialEdges: constructedEdges };
+  }, [profiles, squads, roles, playerStatus, isLoadingProfiles, isLoadingSquads, isLoadingRoles, isLoadingPlayerStatus]);
 
-    setNodes(layoutedNodes);
-    setEdges(layoutedEdges);
-  }, [profiles, squads, roles, playerStatus, isLoadingProfiles, isLoadingSquads, isLoadingRoles, isLoadingPlayerStatus, setNodes, setEdges]);
+  useEffect(() => {
+    if (initialNodes.length > 0) {
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+        initialNodes,
+        initialEdges
+      );
+      setNodes(layoutedNodes);
+      setEdges(layoutedEdges);
+    }
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
   
   const onNodeDragStop = useCallback((event, node) => {
     const targetSquadNode = nodes.find(n => 
@@ -238,3 +249,5 @@ const FleetHierarchy = () => {
     </div>
   );
 };
+
+export default FleetHierarchy;

@@ -73,7 +73,7 @@ export default function CommsPanel({ eventId }) {
         return;
       }
       // 2. Try command net if high rank
-      if (hasMinRank(currentUser, 'Voyager')) {
+      if (hasMinRank(currentUser, 'voyager')) {
         const cmdNet = voiceNets.find(n => n.type === 'command');
         if (cmdNet) {
           setSelectedNetId(cmdNet.id);

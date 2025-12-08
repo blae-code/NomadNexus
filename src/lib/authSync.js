@@ -38,22 +38,27 @@ export const syncProfileFromSession = async (session) => {
       user.email?.split('@')[0] ||
       'Operative';
     const { discordId, avatar_url, username } = extractDiscordIdentity(user);
+    
+    // Build profile payload - only include rank if it exists in user_metadata
+    const profilePayload = {
+      id: user.id,
+      email: user.email || null,
+      callsign,
+      full_name: username || user.email || null,
+      discord_id: discordId || null,
+      avatar_url: avatar_url || null,
+      rsi_handle: user.user_metadata?.rsi_handle || null,
+      updated_at: new Date().toISOString(),
+    };
+    
+    // Only add rank if it exists in user_metadata to avoid overwriting existing rank
+    if (user.user_metadata?.rank) {
+      profilePayload.rank = user.user_metadata.rank;
+    }
+    
     await supabase
       .from('profiles')
-      .upsert(
-        {
-          id: user.id,
-          email: user.email || null,
-          callsign,
-          full_name: username || user.email || null,
-          discord_id: discordId || null,
-          avatar_url: avatar_url || null,
-          rsi_handle: user.user_metadata?.rsi_handle || null,
-          rank: user.user_metadata?.rank || null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
+      .upsert(profilePayload, { onConflict: 'id' });
 
     if (discordId) {
       await supabase.functions.invoke('discord-sync', {

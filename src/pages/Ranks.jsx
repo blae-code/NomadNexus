@@ -39,7 +39,7 @@ export default function RanksPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                {/* Rank Ladder */}
                <div className="h-[600px]">
-                  <RankVisualizer currentRank={user?.rank || 'Vagrant'} />
+                  <RankVisualizer currentRank={user?.rank || 'vagrant'} />
                </div>
 
                {/* Details Panel */}

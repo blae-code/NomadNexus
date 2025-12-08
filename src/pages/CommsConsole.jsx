@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase";
 import CommsEventSelector from "@/components/comms/CommsEventSelector";
 import NetList from "@/components/comms/NetList";
 import ActiveNetPanel from "@/components/comms/ActiveNetPanel";
+import CampfireMapPanel from "@/components/comms/CampfireMapPanel";
+import CampfireManager from "@/components/comms/CampfireManager";
 import BackgroundNetMonitor from "@/components/comms/BackgroundNetMonitor";
 import ReadyRoomList from "@/components/comms/ReadyRoomList";
 import ChatInterface from "@/components/comms/ChatInterface";
@@ -45,8 +47,20 @@ export default function CommsConsolePage() {
   React.useEffect(() => {
     const fetchUser = async () => {
       if (!supabase) return;
-      const { data } = await supabase.auth.getUser();
-      setCurrentUser(data?.user || null);
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user) {
+        setCurrentUser(null);
+        return;
+      }
+      
+      // Fetch full profile with rank
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+      
+      setCurrentUser(profile || authData.user);
     };
     fetchUser().catch((err) => console.error('Comms auth fetch failed', err));
   }, []);
@@ -195,48 +209,106 @@ export default function CommsConsolePage() {
      }
   }, [userSquadId, voiceNets]);
 
-  const renderOpsMain = () => {
-    if (!selectedEventId) return <SignalMap />;
+   const renderOpsMain = () => {
+      if (!selectedEventId) return <SignalMap />;
 
-    if (viewMode === 'hangar') {
-      return <HangarDeck user={currentUser} />;
-    }
-
-    if (viewMode === 'command') {
-      if (isMobile) {
-        if (isLoading) {
-          return (
-            <div className="flex items-center justify-center py-10">
-              <QuantumSpooler label="POCKET MFD" size={74} />
-            </div>
-          );
-        }
-        if (voiceNets.length === 0) {
-          return (
-            <div className="border border-zinc-800 bg-zinc-950/70 p-4 text-[11px] text-zinc-400 font-mono uppercase tracking-[0.3em]">
-              Awaiting channels...
-            </div>
-          );
-        }
-        return renderPocketChannels();
+      if (viewMode === 'hangar') {
+         return <HangarDeck user={currentUser} />;
       }
-      return <Holotable />;
-    }
 
-    return (
-      <>
-        <ActiveNetPanel
-          net={selectedNet}
-          user={currentUser}
-          eventId={selectedEventId}
-        />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TacticalStatusReporter eventId={selectedEventId} net={selectedNet} />
-          <AIInsightsPanel eventId={selectedEventId} compact />
-        </div>
-      </>
-    );
-  };
+      if (viewMode === 'command') {
+         if (isMobile) {
+            if (isLoading) {
+               return (
+                  <div className="flex items-center justify-center py-10">
+                     <QuantumSpooler label="POCKET MFD" size={74} />
+                  </div>
+               );
+            }
+            if (voiceNets.length === 0) {
+               return (
+                  <div className="border border-zinc-800 bg-zinc-950/70 p-4 text-[11px] text-zinc-400 font-mono uppercase tracking-[0.3em]">
+                     Awaiting channels...
+                  </div>
+               );
+            }
+            return renderPocketChannels();
+         }
+         return <Holotable />;
+      }
+
+      // --- NEW: Split right column, top: CampfireMapPanel, bottom: ActiveNetPanel ---
+      // --- NEW: Split right column, top: CampfireMapPanel, bottom: ActiveNetPanel ---
+      // Helper: generate a default campfire name/code
+      const getDefaultCampfireName = () => {
+         const base = 'Campfire';
+         let idx = 1;
+         const names = voiceNets.map(n => n.label || n.code || '').map(s => s.toLowerCase());
+         while (names.includes(`${base.toLowerCase()} ${idx}`)) idx++;
+         return `${base} ${idx}`;
+      };
+
+      // Helper: refresh campfire list
+      const refreshCampfires = () => {
+         // react-query will refetch automatically, but can force if needed
+         // queryClient.invalidateQueries(['voice-nets', selectedEventId]);
+      };
+
+      return (
+         <div className="flex flex-col h-full">
+            <div className="mb-4">
+               <CampfireMapPanel
+                  campfires={voiceNets}
+                  user={currentUser}
+                  currentCampfireId={selectedNet?.id}
+                  isLoading={isLoading}
+                  onLightCampfire={async (campfire) => {
+                     // Only allow Scout+ (enforced in panel)
+                     // Create a new campfire (voice net) in Supabase
+                     const payload = {
+                        event_id: selectedEventId,
+                        code: `CAMPFIRE-${Date.now().toString(36).toUpperCase().slice(-6)}`,
+                        label: getDefaultCampfireName(),
+                        type: 'general',
+                        priority: 4,
+                        min_rank_to_tx: 'vagrant',
+                        min_rank_to_rx: 'vagrant',
+                     };
+                     const result = await import('@/lib/supabaseApi').then(m => m.supabaseApi.entities.VoiceNet.create(payload));
+                     if (!result) throw new Error('Failed to create campfire.');
+                     refreshCampfires();
+                  }}
+                  onDouseCampfire={async (campfire) => {
+                     // Only allow Scout+ (enforced in panel)
+                     if (!campfire.id) throw new Error('Invalid campfire.');
+                     const ok = await import('@/lib/supabaseApi').then(m => m.supabaseApi.entities.VoiceNet.delete(campfire.id));
+                     if (!ok) throw new Error('Failed to douse campfire.');
+                     // If user is in this campfire, deselect
+                     if (selectedNet?.id === campfire.id) setSelectedNet(null);
+                     refreshCampfires();
+                  }}
+                  onJoinCampfire={async (campfire) => {
+                     // Permission check: canAccessChannel
+                     const { canAccessChannel } = await import('@/components/permissions');
+                     if (!canAccessChannel(currentUser, campfire)) throw new Error('Insufficient rank or role for this campfire.');
+                     setSelectedNet(campfire);
+                  }}
+               />
+            </div>
+            <div className="flex-1 min-h-0">
+               <ActiveNetPanel
+                  net={selectedNet}
+                  user={currentUser}
+                  eventId={selectedEventId}
+               />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+               <TacticalStatusReporter eventId={selectedEventId} net={selectedNet} />
+               <AIInsightsPanel eventId={selectedEventId} compact />
+            </div>
+         </div>
+      );
+   };
 
   const renderLoungeMain = () => (
     <div className="grid grid-cols-1 xl:grid-cols-[2fr_1.05fr] gap-4 h-full">
@@ -294,6 +366,12 @@ export default function CommsConsolePage() {
                      LINE
                   </button>
                   <button 
+                     onClick={() => setViewMode('campfire')}
+                     className={`px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${viewMode === 'campfire' ? 'bg-orange-700 text-orange-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                     🔥 CAMPFIRE
+                  </button>
+                  <button 
                      onClick={() => setViewMode('command')}
                      className={`px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${viewMode === 'command' ? 'bg-red-900 text-red-100' : 'text-zinc-500 hover:text-zinc-300'}`}
                   >
@@ -341,7 +419,9 @@ export default function CommsConsolePage() {
                   </div>
                   
                   <div className="flex-1 p-4 overflow-hidden custom-scrollbar">
-                     {!selectedEventId ? (
+                     {viewMode === 'campfire' ? (
+                        <CampfireManager user={currentUser} />
+                     ) : !selectedEventId ? (
                         <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-center space-y-4">
                            <Monitor className="w-12 h-12 opacity-20" />
                            <p className="text-xs uppercase tracking-widest font-bold text-zinc-400">Waiting for Uplink</p>
