@@ -62,8 +62,8 @@ function CommsLog({ eventId }) {
   );
 }
 
-function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, room }) {
-  const { audioState, enforceParticipantMute } = useLiveKit();
+function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, room, riggsyLinked }) {
+  const { audioState, enforceParticipantMute, remoteAudioTracks, localAudioLevel } = useLiveKit();
   const { data: allUsers } = useQuery({
     queryKey: ['users'],
     queryFn: () => supabaseApi.entities.User.list(),
@@ -110,12 +110,15 @@ function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, r
     room.on(RoomEvent.ParticipantMetadataChanged, update);
     room.on(RoomEvent.TrackMuted, update);
     room.on(RoomEvent.TrackUnmuted, update);
+    room.on(RoomEvent.ConnectionQualityChanged, update);
+
     return () => {
       room.off(RoomEvent.ParticipantConnected, update);
       room.off(RoomEvent.ParticipantDisconnected, update);
       room.off(RoomEvent.ParticipantMetadataChanged, update);
       room.off(RoomEvent.TrackMuted, update);
       room.off(RoomEvent.TrackUnmuted, update);
+      room.off(RoomEvent.ConnectionQualityChanged, update);
     };
   }, [room]);
 
@@ -135,19 +138,21 @@ function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, r
       return true;
     });
 
-    const decorated = filtered.map((p) => {
+    let decorated = filtered.map((p) => {
       const meta = p.metadata ? JSON.parse(p.metadata) : {};
       const userId = meta.userId || p.identity;
       const user = allUsers.find((u) => u.id === userId);
       const status = statuses.find((s) => s.user_id === userId);
       const qualityMap = {
-        0: 'offline',
-        1: 'poor',
-        2: 'fair',
-        3: 'good',
-        4: 'excellent',
-        5: 'excellent'
+        [ConnectionQuality.Excellent]: 'excellent',
+        [ConnectionQuality.Good]: 'good',
+        [ConnectionQuality.Poor]: 'poor',
+        [ConnectionQuality.Lost]: 'offline',
+        [ConnectionQuality.Unknown]: 'fair',
       };
+      
+      const remoteTrack = remoteAudioTracks.find(t => t.participantId === p.identity);
+
       return {
         id: userId,
         callsign: user?.callsign || p.name || meta.callsign,
@@ -156,18 +161,34 @@ function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, r
         rank: meta.rank || user?.rank,
         role: status?.role || meta.role || user?.role || "OTHER",
         status: status?.status || 'READY',
-        isSpeaking: p.isSpeaking,
-        isMuted: typeof p.isMicrophoneEnabled === 'boolean' ? !p.isMicrophoneEnabled : false,
+        isSpeaking: p.isLocal ? audioState === AUDIO_STATE.CONNECTED_OPEN : (remoteTrack?.isSpeaking || p.isSpeaking),
+        audioLevel: p.isLocal ? localAudioLevel : (remoteTrack?.audioLevel || (p.isSpeaking ? 0.7 : 0)),
+        isMuted: p.isLocal ? audioState === AUDIO_STATE.CONNECTED_MUTED : (typeof p.isMicrophoneEnabled === 'boolean' ? !p.isMicrophoneEnabled : false),
         isLocal: p.isLocal,
         connectionQuality: qualityMap[p.connectionQuality] || 'fair',
       };
     });
+    
+    if (riggsyLinked) {
+      decorated.push({
+        id: 'riggsy-agent',
+        callsign: 'RIGGSY',
+        rank: 'SYSTEM',
+        role: 'Automation',
+        status: 'READY',
+        isSpeaking: false,
+        audioLevel: 0,
+        isMuted: true,
+        isLocal: false,
+        connectionQuality: 'excellent',
+      });
+    }
 
     return decorated.sort((a, b) => {
       const priority = { DISTRESS: 0, DOWN: 1, ENGAGED: 2, READY: 3, OFFLINE: 4 };
       return (priority[a.status] || 99) - (priority[b.status] || 99);
     });
-  }, [net, lkParticipants, squadMembers, allUsers, statuses]);
+  }, [net, lkParticipants, squadMembers, allUsers, statuses, remoteAudioTracks, audioState, localAudioLevel, riggsyLinked]);
 
   useEffect(() => {
     statuses.forEach((s) => {
@@ -232,17 +253,10 @@ function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, r
       ) : (
         <div className="space-y-3">
           {participants.map((participant, index) => {
-             const isCurrentUser = participant.id === myId;
-             const isMuted = isCurrentUser
-               ? audioState === AUDIO_STATE.CONNECTED_MUTED
-               : participant.isMuted;
-             const isPtt = isCurrentUser && audioState === AUDIO_STATE.CONNECTED_OPEN;
+             const isCurrentUser = participant.isLocal;
              const isPriority = prioritySpeakerId && prioritySpeakerId === participant.id;
-             const isSpeaking =
-               isPriority ||
-               (isCurrentUser && audioState === AUDIO_STATE.CONNECTED_OPEN) ||
-               participant.isSpeaking;
-             const audioLevel = participant.audioLevel || (isSpeaking ? 0.7 : 0);
+             const isSpeaking = participant.isSpeaking;
+             const audioLevel = participant.audioLevel;
 
              return (
               <motion.div
@@ -281,7 +295,7 @@ function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, r
                   <VoicePresenceIndicator
                     user={participant}
                     isSpeaking={isSpeaking}
-                    isMuted={isMuted}
+                    isMuted={participant.isMuted}
                     audioLevel={audioLevel}
                     connectionQuality={participant.connectionQuality || 'fair'}
                     isPriority={isPriority}
@@ -298,7 +312,7 @@ function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, r
                       )}>
                         {participant.callsign || participant.name || 'Unknown'}
                       </span>
-                      {isPtt && (
+                      {isCurrentUser && audioState === AUDIO_STATE.CONNECTED_OPEN && (
                         <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-amber-800/50 text-amber-400">
                           PTT
                         </Badge>
@@ -388,6 +402,7 @@ export default function ActiveNetPanel({ net, user, eventId, room, connectionSta
     }
   });
   const [whisperTarget, setWhisperTarget] = React.useState(null);
+  const [riggsyLinked, setRiggsyLinked] = useState(false); // Mock state for Riggsy presence
 
   // --- Status Message Banner Logic ---
   let panelStatusMsg = null;
@@ -433,7 +448,12 @@ export default function ActiveNetPanel({ net, user, eventId, room, connectionSta
       role,
       userId: user.id,
     });
-    return () => disconnect();
+    // For scaffolding, let's assume riggsy is linked when connected to a net
+    setRiggsyLinked(true); 
+    return () => {
+      disconnect();
+      setRiggsyLinked(false);
+    }
   }, [net?.code, user?.id]);
 
   const handleWhisper = (targetUser) => {
@@ -570,6 +590,7 @@ export default function ActiveNetPanel({ net, user, eventId, room, connectionSta
               whisperTargetId={whisperTarget?.id}
               onHail={handleWhisper}
               room={room}
+              riggsyLinked={riggsyLinked}
             />
             <CommsLog eventId={eventId} />
           </ScrollArea>

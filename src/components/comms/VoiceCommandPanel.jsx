@@ -1,10 +1,3 @@
-import React, { useState } from 'react';
-import { useLiveKit, AUDIO_STATE } from '@/hooks/useLiveKit';
-import { usePTT } from '@/hooks/usePTT';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import ConnectionStrengthIndicator from '@/components/comms/ConnectionStrengthIndicator';
 import { 
   Mic, 
   MicOff, 
@@ -18,7 +11,9 @@ import {
   AlertTriangle,
   Zap,
   Users,
-  Signal
+  Signal,
+  Ban,
+  Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hasMinRank } from '@/components/permissions';
@@ -46,8 +41,30 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
     devices,
   } = useLiveKit();
 
-  const { isPTTActive, setPTTActive } = usePTT();
   const [whisperMode, setWhisperMode] = useState(false);
+  const [pttMode, setPTTMode] = useState(true); // true = PTT, false = VOX/open mic
+  const [micPermission, setMicPermission] = useState('prompt');
+  const [riggsyLinked, setRiggsyLinked] = useState(false);
+
+  useEffect(() => {
+    const checkMicPermission = async () => {
+      try {
+        const result = await navigator.permissions.query({ name: 'microphone' });
+        setMicPermission(result.state);
+        result.onchange = () => setMicPermission(result.state);
+      } catch (err) {
+        // This can happen on browsers that don't support the Permissions API
+        console.warn('Microphone permission check not supported.', err);
+        setMicPermission('granted'); // Assume granted if we can't check
+      }
+    };
+    checkMicPermission();
+  }, []);
+
+  // Conditionally enable PTT hook
+  if (pttMode) {
+    usePTT();
+  }
 
   // Permission checks
   const canTransmit = user && net && hasMinRank(user, net.min_rank_to_tx || 'scout');
@@ -58,8 +75,22 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
 
   // Connection status
   const isConnected = connectionState === 'connected';
-  const isTransmitting = audioState === AUDIO_STATE.CONNECTED_OPEN || isPTTActive;
+  const isTransmitting = audioState === AUDIO_STATE.CONNECTED_OPEN;
   const isMuted = audioState === AUDIO_STATE.CONNECTED_MUTED;
+
+  // Manual mic toggle for VOX/open mode
+  const handleMicToggle = () => {
+    if (!isConnected || !canTransmit || micPermission !== 'granted') return;
+    const shouldEnable = audioState === AUDIO_STATE.CONNECTED_MUTED;
+    setMicrophoneEnabled(shouldEnable);
+  };
+
+  const handlePTTModeToggle = () => {
+    const newMode = !pttMode;
+    setPTTMode(newMode);
+    // When switching to VOX, enable mic. When switching to PTT, disable it (PTT will control it).
+    setMicrophoneEnabled(!newMode);
+  };
 
   // Status color for UI
   const statusColor = isTransmitting 
@@ -92,6 +123,9 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
       stopWhisper();
     }
   };
+  
+  const pttDisabled = !canTransmit || !isConnected || micPermission !== 'granted';
+
 
   if (compact) {
     // Get connection quality from room stats
@@ -114,14 +148,15 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
 
         {/* Controls */}
         <div className="flex items-center justify-between gap-2">
-          {/* PTT Button */}
+          {/* PTT Button or Mic Toggle */}
           <Button
             size="sm"
-            disabled={!canTransmit || !isConnected}
-            onMouseDown={() => setPTTActive(true)}
-            onMouseUp={() => setPTTActive(false)}
-            onTouchStart={() => setPTTActive(true)}
-            onTouchEnd={() => setPTTActive(false)}
+            disabled={pttDisabled}
+            onMouseDown={() => pttMode && setMicrophoneEnabled(true)}
+            onMouseUp={() => pttMode && setMicrophoneEnabled(false)}
+            onTouchStart={() => pttMode && setMicrophoneEnabled(true)}
+            onTouchEnd={() => pttMode && setMicrophoneEnabled(false)}
+            onClick={() => !pttMode && handleMicToggle()}
             className={cn(
               "flex-1 font-mono text-[10px] uppercase tracking-widest transition-all",
               isTransmitting 
@@ -130,7 +165,7 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
             )}
           >
             <Radio className="w-3 h-3 mr-1" />
-            {isTransmitting ? 'TX' : 'PTT'}
+            {isTransmitting ? 'TX' : pttMode ? 'PTT' : isMuted ? 'MUTED' : 'OPEN'}
           </Button>
 
           {/* Quick Actions */}
@@ -175,13 +210,21 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
     <div className="flex flex-col gap-4 p-4 bg-zinc-950/50 border border-zinc-900">
       {/* Status Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={cn("w-2 h-2 rounded-full transition-all", 
-            isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"
-          )} />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-            {isConnected ? 'NET ACTIVE' : 'DISCONNECTED'}
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className={cn("w-2 h-2 rounded-full transition-all", 
+              isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"
+            )} />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+              {isConnected ? 'NET ACTIVE' : 'DISCONNECTED'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Cpu className={cn("w-3 h-3", riggsyLinked ? "text-cyan-500" : "text-red-700")} />
+            <span className={cn("text-[10px] font-mono uppercase tracking-widest", riggsyLinked ? "text-zinc-400" : "text-zinc-600")}>
+              RIGGSY LINK: {riggsyLinked ? 'ONLINE' : 'OFFLINE'}
+            </span>
+          </div>
         </div>
         
         {prioritySpeaker && (
@@ -195,14 +238,25 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
 
       {/* Primary PTT Control */}
       <div className="space-y-2">
-        <div className="text-[10px] uppercase text-zinc-600 font-bold tracking-wider">Transmit Control</div>
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] uppercase text-zinc-600 font-bold tracking-wider">Transmit Control</div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handlePTTModeToggle}
+            className="text-[9px] uppercase text-zinc-500 hover:text-zinc-300"
+          >
+            {pttMode ? 'PTT Mode' : 'VOX Mode'}
+          </Button>
+        </div>
         <Button
           size="lg"
-          disabled={!canTransmit || !isConnected}
-          onMouseDown={() => setPTTActive(true)}
-          onMouseUp={() => setPTTActive(false)}
-          onTouchStart={() => setPTTActive(true)}
-          onTouchEnd={() => setPTTActive(false)}
+          disabled={pttDisabled}
+          onMouseDown={() => pttMode && setMicrophoneEnabled(true)}
+          onMouseUp={() => pttMode && setMicrophoneEnabled(false)}
+          onTouchStart={() => pttMode && setMicrophoneEnabled(true)}
+          onTouchEnd={() => pttMode && setMicrophoneEnabled(false)}
+          onClick={() => !pttMode && handleMicToggle()}
           className={cn(
             "w-full h-16 font-mono text-sm uppercase tracking-widest transition-all relative overflow-hidden",
             isTransmitting 
@@ -215,15 +269,25 @@ export default function VoiceCommandPanel({ user, net, compact = false }) {
           )}
           <div className="relative z-10 flex items-center justify-center gap-2">
             {isTransmitting ? <Mic className="w-5 h-5" /> : <Radio className="w-5 h-5" />}
-            <span>{isTransmitting ? 'TRANSMITTING' : 'PUSH TO TALK'}</span>
+            <span>{isTransmitting ? 'TRANSMITTING' : pttMode ? 'PUSH TO TALK' : isMuted ? 'CLICK TO UNMUTE' : 'OPEN MIC'}</span>
           </div>
         </Button>
         <div className="text-[9px] text-zinc-600 text-center font-mono">
-          Press <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded">SPACE</kbd> or hold button
+          {pttMode 
+            ? <>Press <kbd className="px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded">SPACE</kbd> or hold button</>
+            : <>Click button to toggle mic on/off</>
+          }
         </div>
       </div>
 
-      {!canTransmit && (
+      {micPermission === 'denied' && (
+        <div className="p-3 bg-red-950/20 border border-red-900/50 text-red-500 text-xs font-mono uppercase tracking-wider text-center flex items-center justify-center gap-2">
+          <Ban className="w-4 h-4" />
+          Microphone permissions denied.
+        </div>
+      )}
+
+      {!canTransmit && micPermission === 'granted' && (
         <div className="p-3 bg-red-950/20 border border-red-900/50 text-red-500 text-[10px] font-mono uppercase tracking-wider text-center">
           Insufficient clearance to transmit
         </div>

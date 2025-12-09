@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Send, User, Hash, Lock, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getRankColorClass } from "@/components/utils/rankUtils";
+import { useLiveKit } from "@/hooks/useLiveKit";
 
 export default function ChatInterface({ channel, user }) {
   const scrollRef = useRef(null);
   const [newMessage, setNewMessage] = useState("");
   const queryClient = useQueryClient();
+  const { publishRiggsyQuery, dataFeed } = useLiveKit();
 
   // Fetch Messages
   const { data: messages } = useQuery({
@@ -45,12 +47,27 @@ export default function ChatInterface({ channel, user }) {
     initialData: {}
   });
 
+  // Combine messages and datafeed for a unified view
+  const combinedFeed = useMemo(() => {
+    const chatMessages = messages.map(m => ({...m, feedType: 'chat'}));
+    const riggsyMessages = dataFeed.filter(d => d.type === 'RIGGSY_RESPONSE').map((d, i) => ({
+        id: `riggsy-${i}`,
+        content: d.response,
+        created_at: new Date().toISOString(),
+        user_id: 'riggsy-agent',
+        feedType: 'riggsy'
+    }));
+    const allMessages = [...chatMessages, ...riggsyMessages];
+    return allMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  }, [messages, dataFeed]);
+
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [combinedFeed]);
 
   const sendMessageMutation = useMutation({
     mutationFn: (content) => supabaseApi.entities.Message.create({
@@ -68,6 +85,16 @@ export default function ChatInterface({ channel, user }) {
   const handleSend = (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
+
+    if (newMessage.startsWith('/riggsy ')) {
+      const query = newMessage.replace('/riggsy ', '');
+      publishRiggsyQuery(query);
+      // Placeholder response
+      dataFeed.push({ type: 'RIGGSY_RESPONSE', response: 'Agent offline. Query logged.' });
+      setNewMessage("");
+      return;
+    }
+
     sendMessageMutation.mutate(newMessage);
   };
 
@@ -95,16 +122,17 @@ export default function ChatInterface({ channel, user }) {
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar"
       >
-        {messages.length === 0 ? (
+        {combinedFeed.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-zinc-600 opacity-50">
              <Hash className="w-12 h-12 mb-2" />
              <p className="text-xs font-mono uppercase">Channel Empty. Initialize Comms.</p>
           </div>
         ) : (
-          messages.map((msg, idx) => {
+          combinedFeed.map((msg, idx) => {
             const isMe = msg.user_id === user?.id;
-            const author = authors[msg.user_id] || { full_name: 'Unknown', callsign: 'Unknown' };
-            const showHeader = idx === 0 || messages[idx-1].user_id !== msg.user_id || (new Date(msg.created_at) - new Date(messages[idx-1].created_at) > 300000);
+            const isRiggsy = msg.user_id === 'riggsy-agent';
+            const author = isRiggsy ? { callsign: 'RIGGSY', rank: 'SYSTEM' } : (authors[msg.user_id] || { full_name: 'Unknown', callsign: 'Unknown' });
+            const showHeader = idx === 0 || combinedFeed[idx-1].user_id !== msg.user_id || (new Date(msg.created_at) - new Date(combinedFeed[idx-1].created_at) > 300000);
 
             return (
               <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
@@ -112,7 +140,7 @@ export default function ChatInterface({ channel, user }) {
                    <div className="flex items-center gap-2 mb-1 mt-2">
                       <span className={cn(
                          "text-xs font-bold", 
-                         isMe ? "text-emerald-500" : getRankColorClass(author.rank, 'text')
+                         isMe ? "text-emerald-500" : isRiggsy ? "text-cyan-400" : getRankColorClass(author.rank, 'text')
                       )}>
                          {author.callsign || author.full_name}
                       </span>
@@ -125,6 +153,8 @@ export default function ChatInterface({ channel, user }) {
                    "px-3 py-2 max-w-[80%] text-sm break-words",
                    isMe 
                      ? "bg-emerald-900/20 text-emerald-100 border border-emerald-900/50 rounded-l-lg rounded-tr-lg" 
+                     : isRiggsy
+                     ? "bg-cyan-950/20 text-cyan-200 border border-cyan-900/50 rounded-r-lg rounded-tl-lg"
                      : "bg-zinc-900 text-zinc-300 border border-zinc-800 rounded-r-lg rounded-tl-lg"
                 )}>
                    {msg.content}
@@ -141,7 +171,7 @@ export default function ChatInterface({ channel, user }) {
            <Input 
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Message #${channel.name}...`}
+              placeholder={`Message #${channel.name} or /riggsy [command]`}
               className="bg-zinc-950 border-zinc-800 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-[#ea580c]"
            />
            <Button 

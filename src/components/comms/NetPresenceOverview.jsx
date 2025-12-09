@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -9,13 +9,22 @@ import ConnectionStrengthIndicator from './ConnectionStrengthIndicator';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { useLiveKit } from '@/hooks/useLiveKit';
+import { AUDIO_STATE } from '@/hooks/useLiveKit';
 
 /**
  * NetPresenceOverview
  * Cutting-edge visualization showing user presence across all voice nets
  * Real-time display of who's in which channel
+ *
+ * TODO: This component currently only shows participants for the *active* net.
+ * For a global view, a backend presence solution is required. This could be a
+ * Supabase table updated by a LiveKit agent via webhooks on participant join/leave.
+ * The UI would then subscribe to this table for a real-time global presence view.
  */
 export default function NetPresenceOverview({ compact = false, onNetSelect, connectionMetrics }) {
+  const { remoteAudioTracks, localAudioLevel, audioState, activeNet, room } = useLiveKit();
+
   // Fetch all active voice nets
   const { data: voiceNets = [] } = useQuery({
     queryKey: ['presence-voice-nets'],
@@ -30,20 +39,47 @@ export default function NetPresenceOverview({ compact = false, onNetSelect, conn
     refetchInterval: 3000,
   });
 
-  // Mock participant data - in production, this would come from LiveKit room state
-  // You would query each room's participants via LiveKit API or maintain in Supabase
-  const [roomParticipants, setRoomParticipants] = React.useState({});
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => supabase.from('profiles').select('*'),
+  });
 
-  // For now, we'll track active rooms from local state
-  // In production, integrate with LiveKit room events
-  React.useEffect(() => {
-    // This would be replaced with actual LiveKit room monitoring
-    // For each net, query the LiveKit room participants
-    const mockData = {
-      // netCode: [{ userId, isSpeaking, isMuted, audioLevel }]
+  const roomParticipants = useMemo(() => {
+    if (!activeNet?.code) return {};
+
+    const participants = remoteAudioTracks.map(p => {
+      const user = allUsers.find(u => u.id === p.userId);
+      return {
+        userId: p.participantId,
+        callsign: user?.callsign || p.participantName,
+        rank: user?.rank,
+        role: user?.role,
+        isSpeaking: p.isSpeaking,
+        isMuted: p.muted,
+        audioLevel: p.audioLevel,
+        connectionQuality: p.connectionQuality,
+      };
+    });
+
+    if (room?.localParticipant) {
+      const user = allUsers.find(u => u.id === room.localParticipant.identity);
+      participants.push({
+        userId: room.localParticipant.identity,
+        callsign: user?.callsign || room.localParticipant.name,
+        rank: user?.rank,
+        role: user?.role,
+        isSpeaking: audioState === AUDIO_STATE.CONNECTED_OPEN,
+        isMuted: audioState === AUDIO_STATE.CONNECTED_MUTED,
+        audioLevel: localAudioLevel,
+        connectionQuality: connectionMetrics?.quality || 'good',
+        isLocal: true,
+      });
+    }
+
+    return {
+      [activeNet.code]: participants,
     };
-    setRoomParticipants(mockData);
-  }, [voiceNets]);
+  }, [remoteAudioTracks, localAudioLevel, audioState, activeNet, room, allUsers, connectionMetrics]);
 
   const getNetIcon = (type) => {
     switch (type) {

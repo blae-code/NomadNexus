@@ -1,26 +1,49 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Radio, Activity, Zap, Settings } from "lucide-react";
+import { Mic, MicOff, Radio, Activity, Settings, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Slider as RangeSlider } from "@/components/ui/slider";
-import { useLiveKit } from "@/hooks/useLiveKit";
+import { useLiveKit, AUDIO_STATE } from "@/hooks/useLiveKit";
+import { usePTT } from "@/hooks/usePTT";
 import { cn } from "@/lib/utils";
 
-export default function AudioControls({ onStateChange }) {
+export default function AudioControls() {
   const [mode, setMode] = useState("PTT"); // 'OPEN', 'PTT'
-  const [isMuted, setIsMuted] = useState(false);
-  const [isPTTPressed, setIsPTTPressed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [vadLevel, setVadLevel] = useState(0);
-  const [vadThreshold, setVadThreshold] = useState(0.4);
   const vadStreamRef = useRef(null);
-  const { devices, devicePreferences, updateDevicePreference, updateProcessingPreference } = useLiveKit();
+  const { 
+    devices, 
+    devicePreferences, 
+    updateDevicePreference, 
+    updateProcessingPreference, 
+    audioState, 
+    setMicrophoneEnabled,
+    vadThreshold,
+    setVadThreshold 
+  } = useLiveKit();
+  const [isSaved, setIsSaved] = useState(false);
 
-  // Calculate transmission state
-  const isTransmitting = !isMuted && (mode === 'OPEN' || (mode === 'PTT' && isPTTPressed));
+  // Enable PTT hook only when in PTT mode
+  if (mode === 'PTT') {
+    usePTT();
+  }
+  
+  useEffect(() => {
+    if (showSettings) {
+      setIsSaved(false);
+    } else if (!isSaved) {
+      // Mark as saved a moment after closing
+      const timer = setTimeout(() => setIsSaved(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [showSettings]);
+
+  const isMuted = audioState === AUDIO_STATE.CONNECTED_MUTED;
+  const isTransmitting = audioState === AUDIO_STATE.CONNECTED_OPEN;
 
   // Status color logic
   const statusColor = isTransmitting 
@@ -35,36 +58,26 @@ export default function AudioControls({ onStateChange }) {
       ? "PTT READY"
       : "MUTED";
 
-  // Keyboard listener for PTT (Spacebar)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.code === "Space" && mode === 'PTT' && !e.repeat && !isMuted) {
-        // Prevent scrolling if not focusing an input
-        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-            e.preventDefault();
-            setIsPTTPressed(true);
-        }
-      }
-    };
+  const handleModeChange = () => {
+    const newMode = mode === 'PTT' ? 'OPEN' : 'PTT';
+    setMode(newMode);
+    // When switching to OPEN mode, unmute. When switching to PTT, mute (PTT will handle unmuting).
+    if (newMode === 'OPEN') {
+      setMicrophoneEnabled(true);
+    } else {
+      setMicrophoneEnabled(false);
+    }
+  };
 
-    const handleKeyUp = (e) => {
-      if (e.code === "Space" && mode === 'PTT') {
-         setIsPTTPressed(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [mode, isMuted]);
-
-  // Notify parent of state changes for roster updates
-  useEffect(() => {
-    onStateChange?.({ mode, isMuted, isTransmitting });
-  }, [mode, isMuted, isTransmitting, onStateChange]);
+  const handleMuteToggle = () => {
+    // In PTT mode, the main button acts as a mute toggle for the PTT functionality itself
+    if (mode === 'PTT') {
+        setMicrophoneEnabled(isMuted);
+    } else {
+      // In OPEN mode, it's a simple mute/unmute toggle.
+      setMicrophoneEnabled(!isTransmitting);
+    }
+  };
 
   const vadHot = vadLevel > vadThreshold;
 
@@ -118,7 +131,8 @@ export default function AudioControls({ onStateChange }) {
   return (
     <div className="flex flex-col items-center justify-center py-4">
        <Dialog open={showSettings} onOpenChange={setShowSettings}>
-         <div className="w-full flex justify-end mb-3">
+         <div className="w-full flex justify-end mb-3 items-center gap-2">
+            {isSaved && <span className="text-xs text-emerald-500/70 flex items-center gap-1"><Check className="w-3 h-3" /> Stored</span>}
            <DialogTrigger asChild>
              <Button variant="ghost" size="sm" className="gap-2 text-[11px] uppercase tracking-[0.18em]">
                <Settings className="w-4 h-4" />
@@ -226,7 +240,7 @@ export default function AudioControls({ onStateChange }) {
 
           {/* Mode Toggle Button */}
           <button
-             onClick={() => setMode(m => m === 'PTT' ? 'OPEN' : 'PTT')}
+             onClick={handleModeChange}
              className={cn(
                 "absolute -top-3 px-3 py-0.5 rounded-full border bg-zinc-950 text-[10px] font-black tracking-widest transition-all z-10 hover:scale-105 flex items-center gap-2",
                 mode === 'PTT' ? "border-orange-900 text-orange-500 hover:border-orange-500" : "border-emerald-900 text-emerald-500 hover:border-emerald-500"
@@ -238,7 +252,7 @@ export default function AudioControls({ onStateChange }) {
 
           {/* Center Button */}
           <button
-             onClick={() => setIsMuted(!isMuted)}
+             onClick={handleMuteToggle}
              className={cn(
                 "w-28 h-28 rounded-full flex flex-col items-center justify-center transition-all duration-200 z-0 group active:scale-95 border-4",
                 isMuted 
@@ -259,8 +273,8 @@ export default function AudioControls({ onStateChange }) {
           {/* PTT Instruction */}
           <div className="absolute -bottom-8 text-center w-full">
              {mode === 'PTT' && !isMuted && (
-                <span className={cn("text-[9px] font-mono uppercase tracking-wider", isPTTPressed ? "text-emerald-500 font-bold" : "text-zinc-600")}>
-                   {isPTTPressed ? "TRANSMITTING" : "HOLD [SPACE]"}
+                <span className={cn("text-[9px] font-mono uppercase tracking-wider", isTransmitting ? "text-emerald-500 font-bold" : "text-zinc-600")}>
+                   {isTransmitting ? "TRANSMITTING" : "HOLD [SPACE]"}
                 </span>
              )}
           </div>

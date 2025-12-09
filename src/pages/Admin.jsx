@@ -104,7 +104,7 @@ function BrigActions({ user }) {
   const silence = async () => {
     setMuting(true);
     try {
-      // TODO: Implement Supabase RPC/edge function for silencing users
+      // (FUTURE) Implement Supabase RPC/edge function for silencing users
       console.warn('Silence user not implemented for Supabase');
     } catch (err) {
       setError('Silence failed');
@@ -116,7 +116,7 @@ function BrigActions({ user }) {
   const discharge = async () => {
     setBanning(true);
     try {
-      // TODO: Implement Supabase RPC/edge function for discharging users
+      // (FUTURE) Implement Supabase RPC/edge function for discharging users
       console.warn('Discharge user not implemented for Supabase');
     } catch (err) {
       setError('Discharge failed');
