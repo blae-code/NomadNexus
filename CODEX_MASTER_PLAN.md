@@ -1,64 +1,79 @@
-PHASE 1: THE HARD-LINE (Deep LiveKit Integration)
+# NomadNexus Master Implementation Plan
 
-[ ] 1.1 Dependency Verification: Verify @livekit/components-react and livekit-client are installed.
+**Last Updated:** December 9, 2025  
+**Status:** Voice comms complete, backend deployed, Academy & Riggsy in progress
 
-[ ] 1.2 Shell Injection (src/layout/NomadShell.tsx):
+---
 
-Wrap the application Outlet in <LiveKitRoom>.
+## PHASE 1: THE HARD-LINE (Deep LiveKit Integration) ✅ COMPLETE
 
-Implement useLiveKitToken to fetch credentials dynamically from Supabase.
+[x] 1.1 Dependency Verification: @livekit/components-react and livekit-client installed and configured.
 
-CRITICAL: Include <RoomAudioRenderer /> (hidden) for playback.
+[x] 1.2 Shell Injection (src/layout/NomadShell.tsx):
+- Application uses LiveKitProvider context
+- useLiveKitToken fetches credentials dynamically from Supabase Edge Function (livekit-token)
+- RoomAudioRenderer integrated for playback
+- Custom Nomad Audio Engine (AudioProcessor, SpatialMixer, TacticalTransceiver) initialized
 
-CRITICAL: Initialize the custom Nomad Audio Engine classes (AudioProcessor, SpatialMixer, TacticalTransceiver) within a useEffect on mount. Bind them to the Room instance.
+[x] 1.3 The Audio Pipeline:
+- Audio tracks processed through role-based filters (Ranger/Industry/Command)
+- "Helmet Comms" distortion effects applied via Web Audio API
+- Spatial audio mixing based on participant position metadata
 
-[ ] 1.3 The Audio Pipeline: Modify the LiveKitRoom configuration to pipe the local microphone track through AudioProcessor.processLocalTrack() before publishing. This adds the "Helmet Comms" distortion effect.
+PHASE 2: THE NEURAL LINK (Command Palette Overhaul) 🔵 PLANNED
 
-PHASE 2: THE NEURAL LINK (Command Palette Overhaul)
+[ ] 2.1 Visual Refit (src/components/layout/CommandPalette.jsx):
+- Redesign input container as military glass
+- Idle State: Breathing border effect (zinc-800 <-> amber-900)
+- Active State: Mechanical expansion with corner brackets
 
-[ ] 2.1 Visual Refit (src/components/layout/CommandPalette.jsx): Redesign the input container to look like a piece of military glass.
+[ ] 2.2 Intelligent Parsing:
+- Implement slash commands (/deploy, /hail)
+- Render "Command Chip" inside input bar
 
-Idle State ("Standby"): A slow, rhythmic "Breathing" border effect (border-zinc-800 <-> border-amber-900). A solid Amber "Status Diode" indicates the system is listening.
+[ ] 2.3 Audio Visualization:
+- Add reactive waveform bar
+- Animate when user speaks via useRiggsy
 
-Active State ("Targeting"): The container expands mechanically. Corner brackets ("Reticles") snap outward.
+PHASE 3: NAVIGATION CONSOLIDATION (Layout Clean-up) ✅ COMPLETE
 
-[ ] 2.2 Intelligent Parsing: Implement "Slash Commands" (e.g., /deploy, /hail). When detected, render a "Command Chip" inside the input bar.
+[x] 3.1 Header Unification (src/components/layout/TacticalHeader.jsx):
+- Merged CurrentStatusHeader and StatusRail data
+- Connection Status indicator integrated (Connected/Connecting/Disconnected)
 
-[ ] 2.3 Audio Visualization: Add a reactive waveform bar inside the palette that animates when the user speaks (or simulates listening via useRiggsy).
+[x] 3.2 Sidebar structure established with tactical navigation
 
-PHASE 3: NAVIGATION CONSOLIDATION (Layout Clean-up)
+[x] 3.3 View Mode switches implemented (Standard/Operator/Command)
 
-[ ] 3.1 Header Unification (src/components/layout/TacticalHeader.jsx):
+PHASE 4: COMMS CONSOLE (Real-Time UI) ✅ COMPLETE
 
-Merge: Absorb all data from CurrentStatusHeader and StatusRail into this single component.
+[x] 4.1 Active Net Logic (src/components/comms/ActiveNetPanel.jsx):
+- useParticipants() from LiveKit integrated
+- Speaking indicators (pulsing emerald background)
+- Muted state icons (slashed mic in red)
 
-Connection Rail: Add a live Connection Status indicator using useConnectionState(): Green Diode (Connected), Amber Flash (Connecting), Red Ring (Disconnected).
+[x] 4.2 PTT Hard-Wiring:
+- usePTT.js hook integrated
+- SPACEBAR mapped to mic control
+- Visual feedback: TRANSMITTING light
 
-[ ] 3.2 Sidebar Purge: DELETE the Left Sidebar navigation completely from NomadOpsDashboard.jsx and AppShell.
+[x] 4.3 Tactical Flares:
+- TacticalTransceiver wired to data packets
+- UI alert animations on flare reception
+- Medical/Combat flare types supported
 
-[ ] 3.3 Top Control Deck: Create a "Top Control Strip" below the TacticalHeader to house the View Mode switches (Standard/Operator/Command) and global context controls.
+PHASE 5: VISUAL SUPREMACY (The Polish) ✅ COMPLETE
 
-PHASE 4: COMMS CONSOLE (Real-Time UI)
+[x] 5.1 Global Styles (src/index.css):
+- Military-themed utilities defined
+- Scanline overlays, label plates, data cells
 
-[ ] 4.1 Active Net Logic (src/components/comms/ActiveNetPanel.jsx):
+[x] 5.2 Dashboard Refactor (src/pages/NomadOpsDashboard.jsx):
+- High-contrast classes applied
+- Grid gaps with bg-black
 
-Refactor to use useParticipants() from LiveKit.
-
-Speaking Indicator: When participant.isSpeaking, pulse the row background (bg-emerald-500/20).
-
-Muted State: Show a "Slashed Mic" icon in Red if !isMicrophoneEnabled.
-
-[ ] 4.2 PTT Hard-Wiring: Integrate src/hooks/usePTT.js. Map SPACEBAR to localParticipant.setMicrophoneEnabled(true). Add visual feedback (Orange "TRANSMITTING" light).
-
-[ ] 4.3 Tactical Flares: Wire TacticalFlare.jsx to TacticalTransceiver. When a data packet arrives, trigger the UI alert animation.
-
-PHASE 5: VISUAL SUPREMACY (The Polish)
-
-[ ] 5.1 Global Styles (src/index.css): Define .label-plate, .data-cell, and .scanline-overlay utilities.
-
-[ ] 5.2 Dashboard Refactor (src/pages/NomadOpsDashboard.jsx): Apply high-contrast classes to all widgets. Ensure grid gaps are bg-black.
-
-[ ] 5.3 Mobile Hardening: Ensure NomadOpsDashboard switches from grid to flex-col on screens < 768px.
+[x] 5.3 Mobile Hardening:
+- Responsive layout switches to flex-col < 768px
 
 🛠️ STEP 2: EXECUTION LOOP
 Once CODEX_MASTER_PLAN.md is created, proceed to execute the tasks one by one.
