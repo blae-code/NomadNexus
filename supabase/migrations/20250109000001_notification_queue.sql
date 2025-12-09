@@ -12,14 +12,16 @@ create table if not exists public.notification_queue (
   payload jsonb, -- Custom data for the notification
   read_at timestamptz,
   sent_at timestamptz,
-  created_at timestamptz default now(),
-  
-  -- Index for efficient queue polling
-  created_at desc
+  created_at timestamptz default now()
 );
 
 -- Enable RLS
-alter table public.notification_queue enable row level security;
+alter table if exists public.notification_queue enable row level security;
+
+-- Drop existing policies if they exist
+drop policy if exists "notification_queue_service_role_all" on public.notification_queue;
+drop policy if exists "notification_queue_auth_select" on public.notification_queue;
+drop policy if exists "notification_queue_auth_update" on public.notification_queue;
 
 -- Service role (Edge Functions) can insert/update
 create policy "notification_queue_service_role_all" on public.notification_queue

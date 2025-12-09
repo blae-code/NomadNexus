@@ -18,7 +18,11 @@ create table if not exists public.voice_presence (
 );
 
 -- Enable RLS
-alter table public.voice_presence enable row level security;
+alter table if exists public.voice_presence enable row level security;
+
+-- Drop existing policies if they exist
+drop policy if exists "voice_presence_service_role_all" on public.voice_presence;
+drop policy if exists "voice_presence_auth_select" on public.voice_presence;
 
 -- Service role can do everything
 create policy "voice_presence_service_role_all" on public.voice_presence

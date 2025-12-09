@@ -9,7 +9,11 @@ create table if not exists public.voice_net_bridges (
   unique(source_net_id, target_net_id)
 );
 
-alter table public.voice_net_bridges enable row level security;
+alter table if exists public.voice_net_bridges enable row level security;
+
+-- Drop existing policies if they exist
+drop policy if exists "voice_net_bridges_service_role_all" on public.voice_net_bridges;
+drop policy if exists "voice_net_bridges_auth_select" on public.voice_net_bridges;
 
 -- Service role full access
 create policy "voice_net_bridges_service_role_all" on public.voice_net_bridges
