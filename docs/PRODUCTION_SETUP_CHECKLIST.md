@@ -26,42 +26,38 @@
 
 ---
 
-## ⏳ Manual Configuration Required
+## ✅ Configuration Complete
 
-### Step 1: Set Environment Variables in Supabase
+### Step 1: Environment Variables in Supabase
 
 **Location:** Supabase Dashboard → Project Settings → Edge Functions → Environment Variables
 
-Add the following variables:
+✅ **Status:** All variables configured
+
+The following variables are already set:
 
 ```env
 # LiveKit Configuration
-LIVEKIT_URL=wss://your-livekit-instance.com
-LIVEKIT_API_KEY=your-api-key
-LIVEKIT_API_SECRET=your-api-secret
-LIVEKIT_WEBHOOK_SECRET=your-webhook-secret
+✅ LIVEKIT_URL
+✅ LIVEKIT_API_KEY
+✅ LIVEKIT_API_SECRET
+✅ LIVEKIT_WEBHOOK_SECRET
 
 # Web Push (VAPID Keys)
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=your-vapid-public-key
-VAPID_PRIVATE_KEY=your-vapid-private-key
-VAPID_SUBJECT=mailto:admin@nomadnexus.com
+✅ NEXT_PUBLIC_VAPID_PUBLIC_KEY
+✅ VAPID_PRIVATE_KEY
+✅ VAPID_SUBJECT
 
-# Supabase (verify these exist)
-SUPABASE_URL=https://zzsvexgiqxoyezblumpg.supabase.co
-SUPABASE_SERVICE_KEY=your-service-role-key
+# Supabase
+✅ SUPABASE_URL
+✅ SUPABASE_ANON_KEY
+✅ SUPABASE_SERVICE_ROLE_KEY
+✅ SUPABASE_DB_URL
+✅ PROJECT_URL (alias for SUPABASE_URL)
+✅ SERVICE_ROLE_KEY (alias for SUPABASE_SERVICE_ROLE_KEY)
 ```
 
-**To generate VAPID keys:**
-```bash
-npm install -D web-push
-npx web-push generate-vapid-keys
-```
-
-**Verification:**
-After setting variables, redeploy one function to pick up the changes:
-```bash
-npx supabase functions deploy livekit-token
-```
+All Edge Functions now have access to these environment variables.
 
 ---
 
@@ -69,15 +65,17 @@ npx supabase functions deploy livekit-token
 
 **Location:** LiveKit Dashboard → Settings → Webhooks
 
-**Add Webhook:**
-- **URL:** `https://zzsvexgiqxoyezblumpg.supabase.co/functions/v1/livekit-webhook`
-- **Secret:** Same value as `LIVEKIT_WEBHOOK_SECRET` env var
-- **Events to subscribe:**
-  - ☑️ `participant_joined`
-  - ☑️ `participant_left`
-  - ☑️ `room_finished`
+✅ **Status:** Already configured
 
-**Verification:**
+Your webhook is already set up with:
+- **URL:** `https://zzsvexgiqxoyezblumpg.supabase.co/functions/v1/livekit-webhook`
+- **Secret:** Configured in `LIVEKIT_WEBHOOK_SECRET` env var
+- **Events subscribed:**
+  - ✅ `participant_joined`
+  - ✅ `participant_left`
+  - ✅ `room_finished`
+
+**To verify it's working:**
 1. Join a LiveKit room via the frontend
 2. Check Supabase SQL Editor:
    ```sql
@@ -251,15 +249,15 @@ LIMIT 10;
 
 ---
 
-## 🚀 Next Steps After Configuration
+## 🚀 Ready to Test
 
-1. ✅ Complete Step 1 (Set environment variables)
-2. ✅ Complete Step 2 (Configure LiveKit webhook)
-3. Test all 5 flows listed above
+1. ✅ Step 1: Environment variables configured
+2. ✅ Step 2: LiveKit webhook configured
+3. **Test all 5 flows listed above** ← Start here
 4. Verify frontend integration (useLiveKitToken hook)
 5. Monitor function logs for 24 hours
 6. Update VOICE_COMMS_DEPLOYMENT_VALIDATION.md with results
 
 ---
 
-**Deployment Progress:** 2/5 steps complete (Migrations + Functions deployed, awaiting manual config)
+**Deployment Progress:** 4/5 steps complete (Migrations + Functions + Configuration deployed | Testing pending)
