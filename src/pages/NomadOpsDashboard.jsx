@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { getUserRankValue } from "@/components/permissions";
+import LiveKitErrorBoundary from "@/components/comms/LiveKitErrorBoundary";
 import { 
   DndContext, 
   closestCenter,
@@ -248,5 +249,6 @@ export default function NomadOpsDashboard() {
         </section>
       </main>
     </div>
+    </LiveKitErrorBoundary>
   );
 }

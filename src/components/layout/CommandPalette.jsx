@@ -18,14 +18,29 @@ const Waveform = ({ audioLevel }) => (
             return (
                 <motion.div
                     key={i}
-                    className="w-full bg-emerald-500/70"
+                    className="w-full rounded-full bg-gradient-to-t from-emerald-500 to-emerald-400"
                     initial={{ height: '2px' }}
                     animate={{ height: `${barHeight}%` }}
-                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                    transition={{ duration: 0.05, ease: 'easeOut' }}
                 />
             )
         })}
     </div>
+)
+
+// Phase 4.1: Breathing border effect for Standby Mode
+const BreathingBorder = () => (
+    <motion.div
+        animate={{
+            boxShadow: [
+                'inset 0 0 0 1px rgba(113, 63, 18, 0.3)',
+                'inset 0 0 0 1px rgba(180, 83, 9, 0.5)',
+                'inset 0 0 0 1px rgba(113, 63, 18, 0.3)',
+            ],
+        }}
+        transition={{ duration: 3, repeat: Infinity }}
+        className="absolute inset-0 pointer-events-none"
+    />
 )
 
 export default function CommandPalette({ open, onClose }) {
@@ -104,11 +119,26 @@ export default function CommandPalette({ open, onClose }) {
 			<motion.div
                 layout
 				className={cn(
-                    "bg-zinc-950/80 border-2 w-full max-w-xl p-1 shadow-2xl shadow-amber-900/30",
-                    isActive ? 'border-amber-500' : 'border-zinc-700'
+                    "bg-zinc-950/80 border-2 w-full max-w-xl p-1 relative",
+                    isActive ? 'border-amber-500 shadow-2xl' : 'border-orange-900/40'
                 )}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                animate={{
+                    boxShadow: isActive 
+                        ? 'rgba(217, 119, 6, 0.4) 0px 0px 20px'
+                        : [
+                            'rgba(180, 83, 9, 0.1) 0px 0px 10px',
+                            'rgba(217, 119, 6, 0.15) 0px 0px 15px',
+                            'rgba(180, 83, 9, 0.1) 0px 0px 10px',
+                        ]
+                }}
+                transition={{
+                    boxShadow: isActive
+                        ? { duration: 0.3 }
+                        : { duration: 4, repeat: Infinity, ease: 'easeInOut' }
+                }}
 			>
+                {/* Phase 4.1: Breathing border for Standby Mode */}
+                {!isActive && <BreathingBorder />}
                 {/* Reticle brackets */}
                 <AnimatePresence>
                     {isActive && [
@@ -134,6 +164,17 @@ export default function CommandPalette({ open, onClose }) {
                 </AnimatePresence>
                 
 				<div className="flex items-center px-4 py-2 border-b border-zinc-800/50">
+                    {/* Phase 4.1: Status Diode */}
+                    <motion.div 
+                        animate={{
+                            boxShadow: isActive
+                                ? 'rgba(16, 185, 129, 0.8) 0px 0px 12px'
+                                : 'rgba(217, 119, 6, 0.6) 0px 0px 8px',
+                            backgroundColor: isActive ? '#10b981' : '#d97706'
+                        }}
+                        transition={{ duration: 0.3 }}
+                        className="w-3 h-3 rounded-full mr-3 border border-amber-900/50"
+                    />
                     <motion.div initial={{opacity: 0}} animate={{opacity: 1, transition: {delay: 0.2}}}>
 					    <Terminal className="w-5 h-5 text-amber-400 mr-3" />
                     </motion.div>
@@ -156,38 +197,48 @@ export default function CommandPalette({ open, onClose }) {
 					</button>
 				</div>
 
-                {parsedCommand && (
+                {/* Command Chip - Phase 4.2 */}
+                {parsedCommand && !parsedCommand.error && (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.9, y: -5 }} 
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        className="px-4 py-2 flex items-center gap-2"
+                    >
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-900/30 border border-amber-700/60 rounded-sm">
+                            <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">CHIP:</span>
+                            <span className="text-xs font-mono text-amber-300">{parsedCommand.cmd} {parsedCommand.args.join(' ')}</span>
+                        </div>
+                    </motion.div>
+                )}
+
+                {parsedCommand?.error && (
                     <motion.div 
                         initial={{ opacity: 0, y: -10 }} 
                         animate={{ opacity: 1, y: 0 }}
-                        className="px-4 py-3 border-b border-zinc-800/50 flex items-center justify-between"
+                        className="px-4 py-3 border-b border-red-800/50 bg-red-900/10 flex items-center gap-2"
                     >
-                        <div className="flex items-center gap-2">
-                           {parsedCommand.error ? <Terminal className="w-4 h-4 text-red-500" /> : <CornerRightDown className="w-4 h-4 text-emerald-500" />}
-                            <span className="font-mono text-sm text-zinc-300">
-                                <span className={cn("font-bold", parsedCommand.error ? "text-red-500" : "text-amber-400")}>{parsedCommand.cmd}</span>
-                                {parsedCommand.args.map((arg, i) => <span key={i} className="text-cyan-400 ml-2">{arg}</span>)}
-                            </span>
-                        </div>
-                        {parsedCommand.error ? (
-                             <span className="text-xs font-mono uppercase text-red-500">{parsedCommand.error}</span>
-                        ) : (
-                             <span className="text-xs font-mono uppercase text-emerald-500">Command Ready</span>
-                        )}
+                        <Terminal className="w-4 h-4 text-red-500" />
+                        <span className="text-xs font-mono uppercase text-red-400">{parsedCommand.error}</span>
                     </motion.div>
                 )}
 				
+                {/* Phase 4.4: Hard-Lock Result Styling */}
                 <ul className="max-h-60 overflow-y-auto divide-y divide-zinc-800/50 bg-black/30">
 					{COMMANDS.filter(c => c.cmd.includes(query) || c.label.toLowerCase().includes(query)).map((cmd, i) => (
-						<li
+						<motion.li
 							key={i}
-							className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-amber-900/20 transition-colors text-zinc-400 hover:text-amber-300 font-mono text-sm"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.03 }}
+							className="flex items-center gap-3 px-4 py-2 cursor-pointer transition-all font-mono text-sm group relative border border-transparent hover:border-amber-600/50 hover:bg-amber-950/20"
 							onClick={() => setQuery(cmd.cmd + " ")}
 						>
-							<span className="font-bold text-amber-500 w-24">{cmd.cmd}</span>
-                            <span className="flex-1">{cmd.label}</span>
-							<span className="text-xs text-zinc-500">{cmd.example}</span>
-						</li>
+                            {/* Chevron cursor >> on hover - Phase 4.4 */}
+                            <span className="absolute left-1 text-amber-600/0 group-hover:text-amber-500 transition-colors text-xs font-bold">»</span>
+							<span className="font-bold text-amber-600 w-24 pl-4">{cmd.cmd}</span>
+                            <span className="flex-1 text-zinc-400 group-hover:text-amber-200 transition-colors">{cmd.label}</span>
+							<span className="text-xs text-zinc-600 group-hover:text-amber-400 transition-colors">{cmd.example}</span>
+						</motion.li>
 					))}
 				</ul>
                 
