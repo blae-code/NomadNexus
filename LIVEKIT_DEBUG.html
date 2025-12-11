@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LiveKit Connection Debugger</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .section {
+            background: #1a1a1a;
+            border: 1px solid #00ff00;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .pass { color: #00ff00; }
+        .fail { color: #ff0000; }
+        .warn { color: #ffaa00; }
+        .info { color: #00aaff; }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        pre {
+            background: #000;
+            padding: 10px;
+            overflow-x: auto;
+            border: 1px solid #333;
+        }
+        h2 {
+            color: #00ff00;
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔬 NomadNexus LiveKit Connection Debugger</h1>
+    
+    <div class="section">
+        <h2>Instructions</h2>
+        <p>1. Open your main app in another tab: <a href="http://localhost:5173/" target="_blank" style="color: #00aaff;">http://localhost:5173/</a></p>
+        <p>2. Click "Run Diagnostics" below</p>
+        <p>3. Check results and copy any errors</p>
+    </div>
+
+    <button onclick="runDiagnostics()">🚀 Run Diagnostics</button>
+    <button onclick="testTokenFetch()">🎫 Test Token Fetch</button>
+    <button onclick="testLiveKitConnection()">🔌 Test LiveKit Connection</button>
+    
+    <div id="output"></div>
+
+    <script type="module">
+        window.runDiagnostics = async function() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="section"><h2>⏳ Running diagnostics...</h2></div>';
+            
+            let html = '';
+            
+            // Check 1: Environment Variables
+            html += '<div class="section"><h2>1️⃣ Environment Variables</h2>';
+            try {
+                const envVars = {
+                    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+                    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ Set (hidden)' : '✗ Missing',
+                    VITE_LIVEKIT_URL: import.meta.env.VITE_LIVEKIT_URL
+                };
+                
+                for (const [key, value] of Object.entries(envVars)) {
+                    const status = value ? 'pass' : 'fail';
+                    html += `<div class="${status}">• ${key}: ${value || '✗ MISSING'}</div>`;
+                }
+            } catch (err) {
+                html += `<div class="fail">✗ Error: ${err.message}</div>`;
+            }
+            html += '</div>';
+            
+            // Check 2: Supabase Connection
+            html += '<div class="section"><h2>2️⃣ Supabase Connection</h2>';
+            try {
+                const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+                const supabase = createClient(
+                    import.meta.env.VITE_SUPABASE_URL,
+                    import.meta.env.VITE_SUPABASE_ANON_KEY
+                );
+                
+                html += '<div class="pass">✓ Supabase client created</div>';
+                
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    html += `<div class="pass">✓ User logged in: ${session.user.email}</div>`;
+                    window.supabaseSession = session;
+                } else {
+                    html += '<div class="warn">⚠ No active session - you need to log in at <a href="http://localhost:5173/" target="_blank">localhost:5173</a></div>';
+                }
+            } catch (err) {
+                html += `<div class="fail">✗ Error: ${err.message}</div>`;
+            }
+            html += '</div>';
+            
+            // Check 3: LiveKit URL Reachability
+            html += '<div class="section"><h2>3️⃣ LiveKit Server Reachability</h2>';
+            const livekitUrl = import.meta.env.VITE_LIVEKIT_URL;
+            if (livekitUrl) {
+                html += `<div class="info">Testing: ${livekitUrl}</div>`;
+                try {
+                    const wsUrl = livekitUrl.replace('wss://', 'https://');
+                    const response = await fetch(wsUrl, { method: 'HEAD', mode: 'no-cors' });
+                    html += '<div class="pass">✓ LiveKit server appears reachable (no-cors test passed)</div>';
+                } catch (err) {
+                    html += `<div class="warn">⚠ Could not verify reachability: ${err.message}</div>`;
+                    html += '<div class="info">This may be normal due to CORS - WebSocket connection might still work</div>';
+                }
+            } else {
+                html += '<div class="fail">✗ VITE_LIVEKIT_URL not set</div>';
+            }
+            html += '</div>';
+            
+            output.innerHTML = html;
+        };
+        
+        window.testTokenFetch = async function() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="section"><h2>⏳ Testing token fetch...</h2></div>';
+            
+            let html = '';
+            
+            try {
+                const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+                const supabase = createClient(
+                    import.meta.env.VITE_SUPABASE_URL,
+                    import.meta.env.VITE_SUPABASE_ANON_KEY
+                );
+                
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    html += '<div class="fail">✗ No active session. Please log in at <a href="http://localhost:5173/" target="_blank">localhost:5173</a> first.</div>';
+                    output.innerHTML = html;
+                    return;
+                }
+                
+                html += '<div class="section"><h2>🎫 Token Fetch Test</h2>';
+                html += `<div class="pass">✓ User: ${session.user.email}</div>`;
+                
+                const { data, error } = await supabase.functions.invoke('livekit-token', {
+                    body: {
+                        roomName: 'nomad-ops-shell',
+                        participantName: session.user.email,
+                        identity: session.user.id,
+                        role: 'Scout'
+                    }
+                });
+                
+                if (error) {
+                    html += `<div class="fail">✗ Token fetch failed: ${error.message}</div>`;
+                    html += `<pre>${JSON.stringify(error, null, 2)}</pre>`;
+                } else {
+                    html += '<div class="pass">✓ Token fetched successfully!</div>';
+                    html += `<div class="info">Token: ${data.token ? data.token.substring(0, 50) + '...' : '✗ MISSING'}</div>`;
+                    html += `<div class="info">ServerUrl: ${data.serverUrl || '✗ MISSING'}</div>`;
+                    html += '<details><summary>Full Response (click to expand)</summary><pre>' + JSON.stringify(data, null, 2) + '</pre></details>';
+                    window.lastToken = data;
+                }
+                html += '</div>';
+            } catch (err) {
+                html += `<div class="fail">✗ Error: ${err.message}</div>`;
+                html += `<pre>${err.stack}</pre>`;
+            }
+            
+            output.innerHTML = html;
+        };
+        
+        window.testLiveKitConnection = async function() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="section"><h2>⏳ Testing LiveKit connection...</h2></div>';
+            
+            let html = '';
+            
+            if (!window.lastToken) {
+                html += '<div class="warn">⚠ No token available. Please run "Test Token Fetch" first.</div>';
+                output.innerHTML = html;
+                return;
+            }
+            
+            try {
+                html += '<div class="section"><h2>🔌 LiveKit Connection Test</h2>';
+                
+                const { Room } = await import('https://esm.sh/livekit-client@2');
+                const room = new Room();
+                
+                html += '<div class="info">Creating Room instance...</div>';
+                
+                room.on('connectionStateChanged', (state) => {
+                    console.log('[LiveKit Test] Connection state:', state);
+                });
+                
+                room.on('disconnected', (reason) => {
+                    console.log('[LiveKit Test] Disconnected:', reason);
+                });
+                
+                const { token, serverUrl } = window.lastToken;
+                html += `<div class="info">Connecting to: ${serverUrl}</div>`;
+                html += `<div class="info">Token length: ${token.length} chars</div>`;
+                
+                await room.connect(serverUrl, token);
+                
+                html += `<div class="pass">✓ Connected successfully!</div>`;
+                html += `<div class="pass">✓ Room SID: ${room.sid}</div>`;
+                html += `<div class="pass">✓ Connection State: ${room.state}</div>`;
+                html += `<div class="info">Participants: ${room.participants.size}</div>`;
+                
+                // Disconnect after test
+                setTimeout(() => {
+                    room.disconnect();
+                    html += '<div class="info">Test complete - disconnected</div>';
+                }, 2000);
+                
+                html += '</div>';
+            } catch (err) {
+                html += `<div class="fail">✗ Connection failed: ${err.message}</div>`;
+                html += `<pre>${err.stack}</pre>`;
+            }
+            
+            output.innerHTML = html;
+        };
+    </script>
+</body>
+</html>

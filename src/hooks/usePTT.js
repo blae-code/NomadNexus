@@ -1,13 +1,47 @@
-import { useEffect } from 'react';
-import { useLiveKit } from './useLiveKit';
+import { useEffect, useState } from 'react';
+import { useLiveKit } from './useLiveKit.jsx';
 
 /**
  * usePTT - push-to-talk keyboard handler.
  * Listens for Spacebar presses and calls LiveKit's setMicrophoneEnabled.
  * This is a global listener.
+ * 
+ * @param {Object} options - Optional configuration
+ * @param {Function} options.onPTTChange - Callback when PTT state changes
+ * @returns {Object} - { isPTTActive, setPTTActive }
  */
-export const usePTT = () => {
-  const { setMicrophoneEnabled } = useLiveKit();
+export const usePTT = (options = {}) => {
+  let liveKitContext;
+  let setMicrophoneEnabled;
+  
+  try {
+    liveKitContext = useLiveKit();
+    setMicrophoneEnabled = liveKitContext?.setMicrophoneEnabled;
+  } catch (e) {
+    console.warn('[usePTT] LiveKit context not available:', e.message);
+    setMicrophoneEnabled = null;
+  }
+  
+  const [isPTTActive, setIsPTTActive] = useState(false);
+  const { onPTTChange } = options;
+
+  const setPTTActive = (active) => {
+    setIsPTTActive(active);
+    if (setMicrophoneEnabled && typeof setMicrophoneEnabled === 'function') {
+      try {
+        setMicrophoneEnabled(active);
+      } catch (e) {
+        console.warn('[usePTT] Error setting microphone:', e.message);
+      }
+    }
+    if (onPTTChange && typeof onPTTChange === 'function') {
+      try {
+        onPTTChange(active);
+      } catch (e) {
+        console.warn('[usePTT] Error in onPTTChange callback:', e.message);
+      }
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -16,7 +50,7 @@ export const usePTT = () => {
         return;
       }
       if (event.code === 'Space' && !event.repeat) {
-        setMicrophoneEnabled(true);
+        setPTTActive(true);
       }
     };
     const handleKeyUp = (event) => {
@@ -25,7 +59,7 @@ export const usePTT = () => {
         return;
       }
       if (event.code === 'Space') {
-        setMicrophoneEnabled(false);
+        setPTTActive(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -34,10 +68,9 @@ export const usePTT = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       // Ensure mic is turned off when component unmounts
-      setMicrophoneEnabled(false);
+      setPTTActive(false);
     };
-  }, [setMicrophoneEnabled]);
+  }, []);
 
-  // This hook just provides the keyboard listener logic, no state is returned.
-  return null;
+  return { isPTTActive, setPTTActive };
 };

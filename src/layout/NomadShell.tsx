@@ -39,8 +39,26 @@ export const NomadShell = () => {
   }, []);
 
   useEffect(() => {
-    if (!token || !serverUrl || !participantName) return;
-    if (shellConnectionState === "connected" || shellConnectionState === "connecting") return;
+    console.log('[NomadShell] useEffect triggered:', { 
+      hasToken: !!token, 
+      hasServerUrl: !!serverUrl, 
+      hasParticipantName: !!participantName,
+      shellConnectionState,
+      roomName,
+      profileRank: profile?.rank,
+      profileId: profile?.id
+    });
+    
+    if (!token || !serverUrl || !participantName) {
+      console.log('[NomadShell] Missing required params, skipping connection');
+      return;
+    }
+    if (shellConnectionState === "connected" || shellConnectionState === "connecting") {
+      console.log('[NomadShell] Already connected or connecting, skipping');
+      return;
+    }
+    
+    console.log('[NomadShell] Calling connectShell...');
     connectShell({
       roomName,
       participantName,

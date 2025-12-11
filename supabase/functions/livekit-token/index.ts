@@ -22,14 +22,14 @@ const LIVEKIT_API_KEY = Deno.env.get("LIVEKIT_API_KEY") ?? "";
 const LIVEKIT_API_SECRET = Deno.env.get("LIVEKIT_API_SECRET") ?? "";
 const LIVEKIT_URL = Deno.env.get("LIVEKIT_URL") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_KEY") ?? "";
+const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const REQUIRED_ENVS = [
 	["LIVEKIT_API_KEY", LIVEKIT_API_KEY],
 	["LIVEKIT_API_SECRET", LIVEKIT_API_SECRET],
 	["LIVEKIT_URL", LIVEKIT_URL],
 	["SUPABASE_URL", SUPABASE_URL],
-	["SUPABASE_SERVICE_KEY", SUPABASE_SERVICE_KEY],
+	["SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_KEY],
 ];
 
 const RANK_ORDER = ["vagrant", "scout", "voyager", "founder", "pioneer"];
@@ -37,7 +37,12 @@ const RANK_ORDER = ["vagrant", "scout", "voyager", "founder", "pioneer"];
 const jsonResponse = (status: number, payload: Record<string, unknown>) =>
 	new Response(JSON.stringify(payload), {
 		status,
-		headers: { "Content-Type": "application/json" },
+		headers: { 
+			"Content-Type": "application/json",
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "POST, OPTIONS",
+			"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+		},
 	});
 
 const parseCookies = (cookieHeader: string | null) => {
@@ -91,11 +96,26 @@ const deriveGrants = (userRank: string, net?: { min_rank_to_join?: string | null
 };
 
 serve(async (req: Request) => {
-	const missingEnv = REQUIRED_ENVS.filter(([, value]) => !value).map(([key]) => key);
-	if (missingEnv.length) {
-		console.error("Missing required env vars:", missingEnv.join(","));
-		return jsonResponse(500, { error: "INTERNAL_SERVER_ERROR" });
-	}
+	try {
+		// Handle CORS preflight
+		if (req.method === "OPTIONS") {
+			return new Response(null, {
+				status: 204,
+				headers: {
+					"Access-Control-Allow-Origin": "*",
+					"Access-Control-Allow-Methods": "POST, OPTIONS",
+					"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+				},
+			});
+		}
+
+		const missingEnv = REQUIRED_ENVS.filter(([, value]) => !value).map(([key]) => key);
+		if (missingEnv.length) {
+			console.error("Missing required env vars:", missingEnv.join(","));
+			return jsonResponse(500, { error: "INTERNAL_SERVER_ERROR", missingVars: missingEnv });
+		}
+		
+		console.log("[livekit-token] Request received:", { method: req.method, hasAuth: !!req.headers.get("Authorization") });
 
 	if (req.method !== "POST") {
 		return jsonResponse(405, { error: "METHOD_NOT_ALLOWED" });
@@ -116,28 +136,45 @@ serve(async (req: Request) => {
 
 	const token = getAuthToken(req);
 	if (!token) {
-		return jsonResponse(401, { error: "UNAUTHORIZED" });
+		console.error("[livekit-token] No auth token found in request");
+		return jsonResponse(401, { error: "UNAUTHORIZED", details: "No auth token provided" });
 	}
 
+	console.log("[livekit-token] Auth token found, validating with Supabase...");
 	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 	const { data: authData, error: authError } = await supabase.auth.getUser(token);
 	if (authError || !authData?.user) {
-		console.error("Supabase auth failed", authError);
-		return jsonResponse(401, { error: "UNAUTHORIZED" });
+		console.error("[livekit-token] Supabase auth failed:", authError?.message || "No user data");
+		return jsonResponse(401, { error: "UNAUTHORIZED", details: authError?.message || "Invalid token" });
 	}
+	
+	console.log("[livekit-token] User authenticated:", authData.user.email);
 
 	const user = authData.user;
 
 	const { data: profile, error: profileError } = await supabase
 		.from("profiles")
-		.select("id, rank, roles")
+		.select("id, rank")
 		.eq("id", user.id)
 		.maybeSingle();
 
-	if (profileError || !profile) {
-		console.error("Profile lookup failed", profileError);
-		return jsonResponse(403, { error: "FORBIDDEN", details: "Profile not found" });
+	// If profile doesn't exist, create one with default rank
+	let userProfile = profile;
+	if (!userProfile) {
+		console.log("[livekit-token] Profile not found, creating default profile...");
+		const { data: newProfile, error: createError } = await supabase
+			.from("profiles")
+			.insert([{ id: user.id, email: user.email, rank: "scout" }])
+			.select("id, rank")
+			.single();
+		
+		if (createError || !newProfile) {
+			console.error("[livekit-token] Profile creation failed:", createError?.message || "Unknown error");
+			return jsonResponse(500, { error: "PROFILE_CREATION_FAILED", details: createError?.message || "Could not create profile" });
+		}
+		userProfile = newProfile;
+		console.log("[livekit-token] Profile created successfully with rank:", userProfile.rank);
 	}
 
 	const { data: voiceNet, error: netError } = await supabase
@@ -150,7 +187,7 @@ serve(async (req: Request) => {
 		console.warn("voice_nets lookup failed; defaulting to Scout+ join", netError.message);
 	}
 
-	const userRank = normalizeRank(profile.rank || profile.roles?.[0]);
+	const userRank = normalizeRank(userProfile.rank);
 	const grants = deriveGrants(userRank, voiceNet ?? undefined);
 
 	if (!grants.canJoin || !grants.canSubscribe) {
@@ -162,8 +199,8 @@ serve(async (req: Request) => {
 		name: participantName,
 		metadata: JSON.stringify({
 			userId: user.id,
-			role: role || profile.roles?.[0] || userRank,
-			rank: profile.rank || userRank,
+			role: role || userRank,
+			rank: userProfile.rank || userRank,
 		}),
 	});
 
@@ -175,11 +212,44 @@ serve(async (req: Request) => {
 		canPublishData: grants.canPublishData,
 	});
 
-	try {
-		const livekitToken = at.toJwt();
-		return jsonResponse(200, { token: livekitToken, serverUrl: LIVEKIT_URL });
+		try {
+			console.log("[livekit-token] Signing JWT token...");
+			const livekitToken = at.toJwt();
+			console.log("[livekit-token] Token signed successfully", { 
+				tokenType: typeof livekitToken,
+				tokenValue: livekitToken,
+				isString: typeof livekitToken === 'string',
+				isPromise: livekitToken instanceof Promise,
+				isObject: typeof livekitToken === 'object',
+				keys: typeof livekitToken === 'object' ? Object.keys(livekitToken) : 'N/A'
+			});
+			
+			// If it's a Promise (async), await it
+			let finalToken = livekitToken;
+			if (livekitToken instanceof Promise) {
+				console.log("[livekit-token] Token is a Promise, awaiting...");
+				finalToken = await livekitToken;
+				console.log("[livekit-token] Awaited token:", { 
+					tokenType: typeof finalToken,
+					isString: typeof finalToken === 'string'
+				});
+			}
+			
+			if (typeof finalToken !== 'string') {
+				console.error("[livekit-token] Token is not a string after processing!", {
+					type: typeof finalToken,
+					value: finalToken
+				});
+				return jsonResponse(500, { error: "TOKEN_TYPE_ERROR", details: `Token must be string, got ${typeof finalToken}`, value: finalToken });
+			}
+			
+			return jsonResponse(200, { token: finalToken, serverUrl: LIVEKIT_URL });
+		} catch (err) {
+			console.error("[livekit-token] Token signing failed:", err);
+			return jsonResponse(500, { error: "TOKEN_SIGNING_FAILED", details: err.message });
+		}
 	} catch (err) {
-		console.error("Token signing failed", err);
-		return jsonResponse(500, { error: "INTERNAL_SERVER_ERROR" });
+		console.error("[livekit-token] Unhandled error:", err);
+		return jsonResponse(500, { error: "INTERNAL_SERVER_ERROR", details: err.message, stack: err.stack });
 	}
 });

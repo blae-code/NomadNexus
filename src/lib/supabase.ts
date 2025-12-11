@@ -10,3 +10,8 @@ export const supabase =
     : null;
 
 export const hasSupabase = !!supabase;
+
+// Expose for testing
+if (typeof window !== 'undefined' && supabase) {
+  (window as any).__SUPABASE__ = { supabase };
+}

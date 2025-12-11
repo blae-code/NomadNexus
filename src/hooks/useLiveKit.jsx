@@ -119,6 +119,7 @@ export const LiveKitProvider = ({ children }) => {
   useEffect(() => {
     // Initialize ShipVoice with a sane default voice to avoid undefined profile logs.
     shipVoiceRef.current = new ShipVoice('Microsoft Zira - English (United States)');
+    console.log('[LiveKit Provider] Initialized');
   }, []);
 
   useEffect(() => {
@@ -294,30 +295,85 @@ export const LiveKitProvider = ({ children }) => {
    * - Role-based permissions (canPublish based on role)
    */
   const connectShell = async ({ roomName = 'nomad-ops-shell', participantName, role, userId, tokenOverride, serverUrlOverride }) => {
-    if (!roomName) return;
+    console.log('[LiveKit Shell] connectShell called with:', { 
+      roomName, 
+      participantName, 
+      role, 
+      userId, 
+      hasToken: !!tokenOverride,
+      tokenType: typeof tokenOverride,
+      tokenIsString: typeof tokenOverride === 'string',
+      tokenLength: typeof tokenOverride === 'string' ? tokenOverride.length : 'N/A',
+      hasUrl: !!serverUrlOverride 
+    });
+    if (!roomName) {
+      console.warn('[LiveKit Shell] No roomName provided, aborting');
+      return;
+    }
     const joinNonce = ++shellJoinNonceRef.current;
     setShellConnectionState('connecting');
     try {
-      console.log('[LiveKit] Connecting to net room', roomName);
+      console.log('[LiveKit Shell] Connecting to shell room:', roomName);
       const authToken = tokenOverride;
       const livekitUrl = serverUrlOverride;
       if (!authToken || !livekitUrl) {
+        console.error('[LiveKit Shell] Missing credentials:', { hasToken: !!authToken, hasUrl: !!livekitUrl });
         throw new Error('Shell LiveKit credentials missing - tokenOverride and serverUrlOverride are required.');
       }
+      if (typeof authToken !== 'string') {
+        console.error('[LiveKit Shell] Token is not a string!', { tokenType: typeof authToken, token: authToken });
+        throw new Error(`Token must be a string, got ${typeof authToken}`);
+      }
+      console.log('[LiveKit Shell] Credentials validated. URL:', livekitUrl, 'Token length:', authToken?.length, 'Token prefix:', authToken.substring(0, 50));
       // Minimal listeners for shell; primarily used for data-plane/system events.
+      console.log('[LiveKit Shell] Creating Room instance...');
       const lkRoom = new Room({ adaptiveStream: true, dynacast: true, stopLocalTrackOnUnpublish: true });
+      
+      // Track participant connections
+      lkRoom.on(RoomEvent.ParticipantConnected, (participant) => {
+        const meta = participant.metadata ? JSON.parse(participant.metadata) : {};
+        console.log('[LiveKit Shell] Participant connected:', { 
+          name: participant.name, 
+          identity: participant.identity,
+          rank: meta.rank,
+          role: meta.role,
+          totalParticipants: lkRoom.participants.size + 1
+        });
+      });
+      
+      lkRoom.on(RoomEvent.ParticipantDisconnected, (participant) => {
+        console.log('[LiveKit Shell] Participant disconnected:', { 
+          name: participant.name,
+          totalParticipants: lkRoom.participants.size 
+        });
+      });
+      
       lkRoom.on(RoomEvent.ConnectionStateChanged, (state) => {
+        console.log('[LiveKit Shell] Connection state changed:', state);
         if (joinNonce !== shellJoinNonceRef.current) return;
         setShellConnectionState(state);
         if (state === 'disconnected') {
           setShellRoom(null);
         }
       });
+      console.log('[LiveKit Shell] Calling room.connect() with URL:', livekitUrl);
       await lkRoom.connect(livekitUrl, authToken);
+      console.log('[LiveKit Shell] room.connect() completed successfully');
       if (joinNonce !== shellJoinNonceRef.current) {
         lkRoom.disconnect();
         return;
       }
+      
+      // Log initial participants
+      const initialParticipants = Array.from(lkRoom.participants.values());
+      console.log('[LiveKit Shell] Initial participants in room:', {
+        count: initialParticipants.length + 1,
+        participants: [
+          { name: lkRoom.localParticipant.name, isLocal: true },
+          ...initialParticipants.map(p => ({ name: p.name, identity: p.identity }))
+        ]
+      });
+      
       // Attach metadata for system presence
       const metaPayload = {
         role: role || 'Observer',
@@ -333,10 +389,14 @@ export const LiveKitProvider = ({ children }) => {
       shellRoomRef.current = lkRoom;
       setShellRoom(lkRoom);
       setShellConnectionState('connected');
-      console.log('[LiveKit] Shell connected to', roomName);
+      console.log('[LiveKit Shell] ✅ Shell connected successfully to', roomName);
     } catch (err) {
-      if (joinNonce !== shellJoinNonceRef.current) return;
-      console.error('Shell LiveKit connect failed', err);
+      if (joinNonce !== shellJoinNonceRef.current) {
+        console.warn('[LiveKit Shell] Connection attempt cancelled (stale nonce)');
+        return;
+      }
+      console.error('[LiveKit Shell] ❌ Connect failed:', err);
+      console.error('[LiveKit Shell] Error details:', { message: err.message, stack: err.stack, code: err.code });
       setError(err);
       setShellConnectionState('error');
     }
@@ -862,6 +922,23 @@ export const LiveKitProvider = ({ children }) => {
     setVadThreshold,
     muteAcked,
   };
+
+  // Expose context for testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__LIVEKIT_CONTEXT__ = {
+        shellRoom,
+        room,
+        publishFlare,
+        publishWhisper,
+        setBroadcast,
+        publishMuteAll,
+        audioState,
+        connectionState,
+        shellConnectionState
+      };
+    }
+  }, [shellRoom, room, audioState, connectionState, shellConnectionState]);
 
   return <LiveKitContext.Provider value={value}>{children}</LiveKitContext.Provider>;
 };

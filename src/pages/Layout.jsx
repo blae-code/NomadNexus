@@ -8,11 +8,48 @@ import { cn } from "@/lib/utils";
 import ActivityBar from "@/components/layout/ActivityBar";
 import NetworkStatusIndicator from "@/components/layout/NetworkStatusIndicator";
 import { supabase } from "../lib/supabase";
+import { useLiveKit } from '@/hooks/useLiveKit';
+import { useLiveKitToken } from '@/hooks/useLiveKitToken';
 
 export default function Layout({ children, currentPageName }) {
   const [time, setTime] = useState(new Date());
   const [user, setUser] = useState(null);
   const [walletOpen, setWalletOpen] = useState(false);
+  const { connectShell, shellConnectionState } = useLiveKit();
+
+  // Auto-connect to shell room (always-on data plane)
+  const participantName = user?.callsign || user?.rsi_handle || user?.email || 'Nomad-Shell-User';
+  const { token, serverUrl } = useLiveKitToken('nomad-ops-shell', participantName, user?.id, user?.rank);
+
+  useEffect(() => {
+    console.log('[Layout] Shell connection check:', { 
+      hasUser: !!user, 
+      hasToken: !!token, 
+      hasServerUrl: !!serverUrl,
+      shellConnectionState,
+      participantName
+    });
+
+    if (!user || !token || !serverUrl) {
+      console.log('[Layout] Waiting for user, token, or serverUrl');
+      return;
+    }
+
+    if (shellConnectionState === 'connected' || shellConnectionState === 'connecting') {
+      console.log('[Layout] Shell already connected or connecting');
+      return;
+    }
+
+    console.log('[Layout] Initiating shell connection...');
+    connectShell({
+      roomName: 'nomad-ops-shell',
+      participantName,
+      role: user.rank,
+      userId: user.id,
+      tokenOverride: token,
+      serverUrlOverride: serverUrl,
+    });
+  }, [user, token, serverUrl, shellConnectionState, connectShell, participantName]);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
