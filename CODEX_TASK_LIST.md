@@ -1,5 +1,12 @@
-[x] 2.3 Header Status (src/components/layout/TacticalHeader.jsx): Add a live Connection Status indicator (Green Diode = Connected, Amber Flash = Connecting, Red Ring = Disconnected, Error = Red Diode).
-[x] 3.1 Active Net Logic (src/components/comms/ActiveNetPanel.jsx): Refactor to use useParticipants(), add tactical-grade error and state handling.
+## NomadOps CODEX — Task List
+
+### Status: PHASE 3 COMPLETE — LiveKit User-Accessible ✅
+
+**Last Updated**: December 11, 2025  
+**Completion**: Phases 1-3 (Core LiveKit Integration + UI) — DONE
+
+---
+
 PHASE 1: VISUAL SUPREMACY (High Contrast)
 
 [x] 1.1 Global Styles (src/index.css): Define .label-plate (font-black, uppercase, bg-burnt-orange, text-black) and .data-cell (border-zinc-800, bg-black, inner-shadow). Add a .scanline-overlay utility.
@@ -18,19 +25,19 @@ MERGE duplicate headers into a single TacticalHeader.jsx.
 
 PHASE 2: THE HARD-LINE (LiveKit Integration)
 
-[ ] 2.1 Dependency Check: Verify @livekit/components-react and livekit-client.
+[x] 2.1 Dependency Check: Verify @livekit/components-react and livekit-client.
 
-[ ] 2.2 Shell Integration (src/layout/NomadShell.tsx): Wrap Outlet in <LiveKitRoom>. Implement useLiveKitToken. Include <RoomAudioRenderer /> (hidden).
+[x] 2.2 Shell Integration (src/layout/NomadShell.tsx): Wrap Outlet in <LiveKitRoom>. Implement useLiveKitToken. Include <RoomAudioRenderer /> (hidden).
 
-[ ] 2.3 Header Status (src/components/layout/TacticalHeader.jsx): Add a live Connection Status indicator (Green Diode = Connected, Amber Flash = Connecting, Red Ring = Disconnected).
+[x] 2.3 Header Status (src/components/layout/TacticalHeader.jsx): Add a live Connection Status indicator (Green Diode = Connected, Amber Flash = Connecting, Red Ring = Disconnected).
 
 PHASE 3: COMMS CONSOLE (UI Logic)
 
-[ ] 3.1 Active Net Logic (src/components/comms/ActiveNetPanel.jsx): Refactor to use useParticipants().
+[x] 3.1 Active Net Logic (src/components/comms/ActiveNetPanel.jsx): Refactor to use useParticipants() hook from @livekit/components-react.
 
-[ ] 3.2 Audio Feedback: Highlight rows when participant.isSpeaking (Green Pulse). Show a "Slashed Mic" icon in Red if !isMicrophoneEnabled.
+[x] 3.2 Audio Feedback: Highlight rows when participant.isSpeaking (Green Pulse). Show a "Slashed Mic" icon in Red if !isMicrophoneEnabled.
 
-[ ] 3.3 Local Override: Add a physical "PUSH-BUTTON" style toggle for the local microphone (Green="VOX ACTIVE", Red="MUTED").
+[x] 3.3 Local Override: Add a physical "PUSH-BUTTON" style toggle for the local microphone (Green="VOX ACTIVE", Red="MUTED").
 
 PHASE 4: THE NEURAL LINK (Command Palette Overhaul)
 

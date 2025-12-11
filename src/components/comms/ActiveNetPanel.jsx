@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RoomEvent } from "livekit-client";
+import { RoomEvent, ConnectionQuality } from "livekit-client";
+import { useParticipants, useTracks, Track } from "@livekit/components-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabaseApi } from "@/lib/supabaseApi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -91,36 +92,13 @@ function NetRoster({ net, eventId, onHail, prioritySpeakerId, whisperTargetId, r
     initialData: []
   });
 
-  // Filter users relevant to this net
-  const [lkParticipants, setLkParticipants] = useState([]);
-
-  useEffect(() => {
-    if (!room) {
-      setLkParticipants([]);
-      return;
-    }
-    const update = () => {
-      const remotes = Array.from(room.participants?.values?.() || []);
-      const locals = room.localParticipant ? [room.localParticipant] : [];
-      setLkParticipants([...locals, ...remotes]);
-    };
-    update();
-    room.on(RoomEvent.ParticipantConnected, update);
-    room.on(RoomEvent.ParticipantDisconnected, update);
-    room.on(RoomEvent.ParticipantMetadataChanged, update);
-    room.on(RoomEvent.TrackMuted, update);
-    room.on(RoomEvent.TrackUnmuted, update);
-    room.on(RoomEvent.ConnectionQualityChanged, update);
-
-    return () => {
-      room.off(RoomEvent.ParticipantConnected, update);
-      room.off(RoomEvent.ParticipantDisconnected, update);
-      room.off(RoomEvent.ParticipantMetadataChanged, update);
-      room.off(RoomEvent.TrackMuted, update);
-      room.off(RoomEvent.TrackUnmuted, update);
-      room.off(RoomEvent.ConnectionQualityChanged, update);
-    };
-  }, [room]);
+  // Use LiveKit's useParticipants hook for real-time participant tracking
+  const lkParticipants = useParticipants();
+  
+  // Track speaking participants with audio tracks
+  const audioTracks = useTracks([Track.Source.Microphone], {
+    updateOnlyOn: [RoomEvent.ActiveSpeakersChanged],
+  });
 
   const participants = React.useMemo(() => {
     if (!net) return [];

@@ -58,6 +58,9 @@ export default function AudioControls() {
       ? "PTT READY"
       : "MUTED";
 
+  // PTT Active state for visual feedback
+  const { isPTTActive } = mode === 'PTT' ? usePTT() : { isPTTActive: false };
+
   const handleModeChange = () => {
     const newMode = mode === 'PTT' ? 'OPEN' : 'PTT';
     setMode(newMode);
@@ -78,6 +81,11 @@ export default function AudioControls() {
       setMicrophoneEnabled(!isTransmitting);
     }
   };
+
+  // Physical PTT Button State for CODEX Phase 3.3
+  const pttButtonState = mode === 'PTT' 
+    ? (isPTTActive ? 'VOX_ACTIVE' : (isMuted ? 'MUTED' : 'STANDBY'))
+    : (isTransmitting ? 'VOX_ACTIVE' : 'MUTED');
 
   const vadHot = vadLevel > vadThreshold;
 
@@ -227,6 +235,30 @@ export default function AudioControls() {
            </div>
          </DialogContent>
        </Dialog>
+
+       {/* CODEX Phase 3.3: Physical "PUSH-BUTTON" style PTT Control */}
+       <div className="w-full mb-4 p-4 border border-zinc-800 bg-zinc-950/50 backdrop-blur">
+          <div className="flex items-center justify-between mb-2">
+             <span className="label-plate px-2 py-1 text-[10px]">MIC CONTROL</span>
+             <div className={cn(
+                "px-3 py-1 font-black text-xs tracking-widest transition-all",
+                pttButtonState === 'VOX_ACTIVE' 
+                   ? "bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500" 
+                   : pttButtonState === 'MUTED' 
+                      ? "bg-red-500/20 text-red-400 border-2 border-red-500" 
+                      : "bg-orange-500/20 text-orange-400 border-2 border-orange-500"
+             )}>
+                {pttButtonState === 'VOX_ACTIVE' && '● VOX ACTIVE'}
+                {pttButtonState === 'MUTED' && '⊘ MUTED'}
+                {pttButtonState === 'STANDBY' && '○ STANDBY'}
+             </div>
+          </div>
+          <div className="text-[10px] text-zinc-500 font-mono">
+             {mode === 'PTT' 
+                ? "Push-to-talk mode: Hold [SPACE] to transmit" 
+                : "Open mic mode: Always broadcasting when unmuted"}
+          </div>
+       </div>
 
        <div className="relative w-40 h-40 flex items-center justify-center select-none">
           
